@@ -10,15 +10,7 @@
  * Set FIREBASE_API_KEY below to the Firebase web config's apiKey, then
  * Deploy > New deployment > Web app, Execute as: Me, Who has access: Anyone.
  */
-const firebaseConfig = {
-  apiKey: "AIzaSyDn181WEUUq6Dw9F0-2OgXzm0vbe6cfLkI",
-  authDomain: "estimation-6fa32.firebaseapp.com",
-  projectId: "estimation-6fa32",
-  storageBucket: "estimation-6fa32.firebasestorage.app",
-  messagingSenderId: "532959505940",
-  appId: "1:532959505940:web:bbca06110ffa1ed628c101",
-  measurementId: "G-ZGMDDVV5M2"
-};;
+const FIREBASE_API_KEY = 'AIzaSyDn181WEUUq6Dw9F0-2OgXzm0vbe6cfLkI';
 const SHEET = 'Users';
 const HEADERS = ['User ID', 'First name', 'Last name', 'Organization', 'Department', 'Mobile', 'Email', 'Signed up', 'Updated'];
 
