@@ -17,10 +17,11 @@
   let ready = null;
   let auth = null;
 
-  function load(src) {
+  function load(src, ordered) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = base + src;
+      if (ordered) s.async = false;
       s.onload = resolve;
       s.onerror = () => reject(new Error('Could not load ' + src));
       document.head.appendChild(s);
@@ -31,8 +32,8 @@
     if (!configured) return Promise.reject(new Error('Accounts are not set up yet.'));
     if (!ready) {
       ready = (async () => {
-        await load('firebase/firebase-app-compat.js');
-        await load('firebase/firebase-auth-compat.js');
+        // Both files download at once and run in order (app, then auth).
+        await Promise.all([load('firebase/firebase-app-compat.js', true), load('firebase/firebase-auth-compat.js', true)]);
         const { emulator, ...options } = config;
         const app = window.firebase.initializeApp(options);
         auth = app.auth();
@@ -77,6 +78,9 @@
   }
 
   const user = (u) => (u ? JSON.stringify({ uid: u.uid, email: u.email || '' }) : null);
+
+  // Start loading Firebase now, while the app itself downloads.
+  if (configured) start().catch(() => {});
 
   window.estimationAuth = {
     configured: () => configured,
