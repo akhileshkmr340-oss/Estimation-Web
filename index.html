@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="favicon.png">
+<title>Estimation: BOQ to Excel</title>
+<meta name="description" content="Turn drawings, BOQs and specifications into a clean bill of quantities in Excel, right in your browser.">
+<style>
+  :root { --bg: #f7f9fc; --fg: #1a1c1e; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111418; --fg: #e2e2e6; color-scheme: dark } }
+  :root[data-theme="dark"] { --bg: #111418; --fg: #e2e2e6; color-scheme: dark }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--fg); margin: 0; overflow: hidden; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; font: 15px/1.4 system-ui, sans-serif; color: var(--fg); }
+</style>
+</head>
+<body>
+<div id="loading">Loading Estimation…</div>
+<script src="ocr/tesseract.min.js"></script>
+<script src="estimation.js"></script>
+<script>
+  window.addEventListener('flutter-first-frame', function () { var l = document.getElementById('loading'); if (l) l.remove(); });
+</script>
+<script src="flutter_bootstrap.js" async></script>
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+dist/ and wasm/ are @mlightcad/libredwg-web 0.8.0 (https://github.com/mlightcad/libredwg-web),
+a WebAssembly build of GNU LibreDWG (https://www.gnu.org/software/libredwg/).
+Both are licensed under the GNU General Public License version 3 (GPL-3.0).
+Source code: https://github.com/mlightcad/libredwg-web and https://git.savannah.gnu.org/git/libredwg.git
