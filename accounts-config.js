@@ -15,5 +15,5 @@ window.estimationAccounts = {
     messagingSenderId: '532959505940',
     appId: '1:532959505940:web:bbca06110ffa1ed628c101',
   },
-  profileScript: 'https://script.google.com/macros/s/AKfycbxI-Q-YewvoOSxiPIPQMpX64ZO96FtXJ9IpZerylDhmW96GZakc5nmH1epWc3zMGJKG/exec',
+  profileScript: 'https://script.google.com/macros/s/AKfycby_oL7V9tj9bHlM1EHNwuPkJCP-WUpnEWdIIwUmjx1FY37fgHKfNEsKNnuyQusBRnEB/exec',
 };
