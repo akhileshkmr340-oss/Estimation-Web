@@ -1,5 +1,5 @@
-// Browser services for the Estimation web app: file picking, storage
-// (IndexedDB), OCR (Tesseract.js), scanned-PDF rendering (pdf.js) and
+// Browser services for the Estimation web app: file picking, background reading
+// of files in a worker, OCR (Tesseract.js), scanned-PDF rendering (pdf.js) and
 // downloads. Everything runs in the browser; nothing is uploaded.
 (function () {
   'use strict';
@@ -94,62 +94,20 @@
     } catch (_) { return false; }
   }
 
-  // ---- Storage (IndexedDB, with an in-memory fallback) --------------------
+  // ---- Storage -------------------------------------------------------------
 
-  const memory = { projects: new Map(), files: new Map(), settings: new Map() };
-  let dbPromise = null;
-  function openDb() {
-    if (!dbPromise) {
-      dbPromise = new Promise((resolve) => {
-        try {
-          const req = indexedDB.open('estimation', 1);
-          req.onupgradeneeded = () => {
-            const db = req.result;
-            for (const s of ['projects', 'files', 'settings']) {
-              if (!db.objectStoreNames.contains(s)) db.createObjectStore(s);
-            }
-          };
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => resolve(null);
-          req.onblocked = () => resolve(null);
-        } catch (_) {
-          resolve(null);
-        }
-      });
-    }
-    return dbPromise;
-  }
-
-  async function tx(store, mode, fn) {
-    const db = await openDb();
-    if (!db) return fn(null, memory[store]);
-    return new Promise((resolve, reject) => {
-      let result;
+  // The website keeps nothing in the browser. Earlier versions saved
+  // projects and files in IndexedDB; this deletes that database.
+  function clearStorage() {
+    return new Promise((resolve) => {
       try {
-        const t = db.transaction(store, mode);
-        const s = t.objectStore(store);
-        const r = fn(s, null);
-        if (r && 'onsuccess' in r) r.onsuccess = () => { result = r.result; };
-        t.oncomplete = () => resolve(result);
-        t.onerror = () => reject(t.error);
-        t.onabort = () => reject(t.error || new Error('Storage is full or blocked.'));
-      } catch (e) {
-        // Storage refused (private window etc.): keep data for this visit only.
-        resolve(fn(null, memory[store]));
+        const req = indexedDB.deleteDatabase('estimation');
+        req.onsuccess = req.onerror = req.onblocked = () => resolve();
+      } catch (_) {
+        resolve();
       }
     });
   }
-
-  const storage = {
-    persistent: async () => !!(await openDb()),
-    put: (store, key, value) => tx(store, 'readwrite', (s, m) => (s ? s.put(value, key) : m.set(key, value))),
-    get: (store, key) => tx(store, 'readonly', (s, m) => (s ? s.get(key) : m.get(key))),
-    remove: (store, key) => tx(store, 'readwrite', (s, m) => (s ? s.delete(key) : m.delete(key))),
-    all: async (store) => {
-      const values = await tx(store, 'readonly', (s, m) => (s ? s.getAll() : Array.from(m.values())));
-      return values || [];
-    },
-  };
 
   // ---- OCR -----------------------------------------------------------------
 
@@ -231,6 +189,66 @@
 
   const ocrAvailable = () => typeof window.Tesseract !== 'undefined';
 
+  // ---- Reading files (Dart, in workers) ----------------------------------
+
+  // The same reading code as the page's, compiled for workers
+  // (worker/extract.js), so large drawings never freeze the page. Large PDFs
+  // are read in parts by several workers at once.
+  const exPending = new Map();
+  const exPool = [];
+  let exSeq = 0;
+  const workerCount = () => Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+
+  function exWorker() {
+    let best = null;
+    for (const w of exPool) if (!best || w.busy < best.busy) best = w;
+    if (best && (best.busy === 0 || exPool.length >= workerCount())) return best;
+    const w = { worker: new Worker(base + 'worker/extract.js'), busy: 0, jobs: new Set() };
+    w.worker.onmessage = (e) => {
+      const p = exPending.get(e.data.id);
+      if (!p) return;
+      if (e.data.status !== undefined) {
+        if (p.onStatus) p.onStatus(e.data.status);
+        return;
+      }
+      exPending.delete(e.data.id);
+      w.jobs.delete(e.data.id);
+      w.busy--;
+      p.resolve({ json: e.data.json, bytes: e.data.bytes || null });
+    };
+    w.worker.onerror = (e) => {
+      // A crash (for example out of memory) fails this worker's files; the
+      // next file starts a fresh worker.
+      const err = new Error(e.message || 'The file reader stopped (the browser may be out of memory).');
+      for (const id of w.jobs) {
+        const p = exPending.get(id);
+        exPending.delete(id);
+        if (p) p.reject(err);
+      }
+      w.worker.terminate();
+      exPool.splice(exPool.indexOf(w), 1);
+    };
+    exPool.push(w);
+    return w;
+  }
+
+  // job: {mode, name, bytes, dwgJson, from, to}. With move, the bytes are
+  // moved to the worker and handed back with the result; otherwise the
+  // worker gets a copy.
+  function extract(job, move, onStatus) {
+    if (typeof Worker === 'undefined') return Promise.reject(new Error('no workers'));
+    const w = exWorker();
+    const id = ++exSeq;
+    return new Promise((resolve, reject) => {
+      exPending.set(id, { resolve, reject, onStatus });
+      w.jobs.add(id);
+      w.busy++;
+      const msg = Object.assign({ id, back: !!move }, job);
+      if (move && job.bytes) w.worker.postMessage(msg, [job.bytes.buffer]);
+      else w.worker.postMessage(msg);
+    });
+  }
+
   // ---- DWG (LibreDWG in a worker) -----------------------------------------
 
   let dwgWorker = null;
@@ -262,6 +280,6 @@
 
   window.estimation = {
     pickFiles, takeDropped, onDrop, saveFile, shareFile, canShareFiles,
-    storage, ocrAvailable, ocrImage, ocrPdf, readDwg,
+    clearStorage, ocrAvailable, ocrImage, ocrPdf, readDwg, extract, workerCount,
   };
 })();
