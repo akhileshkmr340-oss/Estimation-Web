@@ -1,0 +1,146 @@
+// Accounts for the Estimation website: sign up and log in with email and
+// password (Firebase Authentication). Each user's profile (name,
+// organization, department, mobile, email) is a row of a Google Sheet in the
+// owner's Drive, written by a Google Apps Script web app (accounts/
+// profiles.gs) that checks the user's Firebase ID token first. Passwords stay
+// with Firebase. Only account data is kept; drawings and outputs never leave
+// the browser. The settings are in accounts-config.js; until they are filled
+// in, accounts are off and the website works without logging in.
+(function () {
+  'use strict';
+
+  const base = new URL('.', document.baseURI).href;
+  const settings = window.estimationAccounts || {};
+  const config = settings.firebase || null;
+  const script = settings.profileScript || '';
+  const configured = !!(config && config.apiKey && script);
+  let ready = null;
+  let auth = null;
+
+  function load(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = base + src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Could not load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  function start() {
+    if (!configured) return Promise.reject(new Error('Accounts are not set up yet.'));
+    if (!ready) {
+      ready = (async () => {
+        await load('firebase/firebase-app-compat.js');
+        await load('firebase/firebase-auth-compat.js');
+        const { emulator, ...options } = config;
+        const app = window.firebase.initializeApp(options);
+        auth = app.auth();
+        if (emulator) auth.useEmulator(emulator, { disableWarnings: true });
+      })();
+    }
+    return ready;
+  }
+
+  const messages = {
+    'auth/email-already-in-use': 'An account with this email already exists. Log in instead.',
+    'auth/invalid-email': 'Enter a valid email address.',
+    'auth/weak-password': 'Use a password of at least 6 characters.',
+    'auth/invalid-credential': 'The email or password is not right.',
+    'auth/wrong-password': 'The email or password is not right.',
+    'auth/user-not-found': 'The email or password is not right.',
+    'auth/user-disabled': 'This account has been turned off.',
+    'auth/too-many-requests': 'Too many tries. Wait a few minutes and try again.',
+    'auth/network-request-failed': 'No connection. Check the internet and try again.',
+    'auth/operation-not-allowed': 'Email sign-in is not switched on for this website yet.',
+  };
+  const friendly = (e) => new Error(messages[e && e.code] || (e && e.message) || String(e));
+
+  // Calls the profile script. Sent as text/plain so the browser makes a
+  // simple request that Apps Script accepts from another site.
+  async function call(action, extra) {
+    const idToken = await auth.currentUser.getIdToken();
+    let res;
+    try {
+      res = await fetch(script, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(Object.assign({ action, idToken }, extra || {})),
+      });
+    } catch (e) {
+      throw new Error('The profile store could not be reached. Check the internet and try again.');
+    }
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (!data || !data.ok) throw new Error((data && data.error) || 'The profile store did not answer (' + res.status + ').');
+    return data;
+  }
+
+  const user = (u) => (u ? JSON.stringify({ uid: u.uid, email: u.email || '' }) : null);
+
+  window.estimationAuth = {
+    configured: () => configured,
+
+    // Calls back with the signed-in user (JSON) or null, now and on changes.
+    onChange: async (cb) => {
+      try {
+        await start();
+        auth.onAuthStateChanged((u) => cb(user(u)));
+      } catch (e) {
+        cb(null);
+      }
+    },
+
+    signUp: async (email, password, profileJson) => {
+      await start();
+      let cred;
+      try {
+        cred = await auth.createUserWithEmailAndPassword(email, password);
+      } catch (e) {
+        throw friendly(e);
+      }
+      const p = JSON.parse(profileJson);
+      try {
+        await call('save', { profile: p });
+        await cred.user.updateProfile({ displayName: (p.firstName + ' ' + p.lastName).trim() });
+      } catch (e) {
+        // Without its profile the account is incomplete: remove it so the
+        // same email can sign up again.
+        try { await cred.user.delete(); } catch (_) {}
+        throw friendly(e);
+      }
+      return user(cred.user);
+    },
+
+    signIn: async (email, password) => {
+      await start();
+      try {
+        return user((await auth.signInWithEmailAndPassword(email, password)).user);
+      } catch (e) {
+        throw friendly(e);
+      }
+    },
+
+    signOut: async () => {
+      await start();
+      await auth.signOut();
+    },
+
+    resetPassword: async (email) => {
+      await start();
+      try {
+        await auth.sendPasswordResetEmail(email);
+      } catch (e) {
+        throw friendly(e);
+      }
+    },
+
+    // The signed-in user's profile as JSON, or null.
+    profile: async () => {
+      await start();
+      if (!auth.currentUser) return null;
+      const data = await call('get');
+      return data.profile ? JSON.stringify(data.profile) : null;
+    },
+  };
+})();
