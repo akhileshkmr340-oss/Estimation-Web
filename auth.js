@@ -68,11 +68,11 @@
         body: JSON.stringify(Object.assign({ action, idToken }, extra || {})),
       });
     } catch (e) {
-      throw new Error('The profile store could not be reached. Check the internet and try again.');
+      throw new Error('the profile store (Google Sheet script) did not answer. Check the internet; if it keeps happening, the script must be deployed with access set to Anyone.');
     }
     let data = null;
     try { data = await res.json(); } catch (_) {}
-    if (!data || !data.ok) throw new Error((data && data.error) || 'The profile store did not answer (' + res.status + ').');
+    if (!data || !data.ok) throw new Error((data && data.error) || 'the profile store gave an unexpected answer (' + res.status + ').');
     return data;
   }
 
@@ -91,25 +91,26 @@
       }
     },
 
-    signUp: async (email, password, profileJson) => {
+    // Creates the account. The profile is saved separately (saveProfile),
+    // so the account is kept even if the profile store cannot be reached.
+    signUp: async (email, password) => {
       await start();
-      let cred;
       try {
-        cred = await auth.createUserWithEmailAndPassword(email, password);
+        return user((await auth.createUserWithEmailAndPassword(email, password)).user);
       } catch (e) {
         throw friendly(e);
       }
+    },
+
+    saveProfile: async (profileJson) => {
+      await start();
       const p = JSON.parse(profileJson);
       try {
         await call('save', { profile: p });
-        await cred.user.updateProfile({ displayName: (p.firstName + ' ' + p.lastName).trim() });
       } catch (e) {
-        // Without its profile the account is incomplete: remove it so the
-        // same email can sign up again.
-        try { await cred.user.delete(); } catch (_) {}
         throw friendly(e);
       }
-      return user(cred.user);
+      try { await auth.currentUser.updateProfile({ displayName: (p.firstName + ' ' + p.lastName).trim() }); } catch (_) {}
     },
 
     signIn: async (email, password) => {
