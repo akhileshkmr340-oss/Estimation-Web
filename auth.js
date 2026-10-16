@@ -140,6 +140,41 @@
       }
     },
 
+    // The signed-in user's saved project details (JSON list). Throws
+    // 'outdated' when the Sheet script has no project support yet.
+    projects: async () => {
+      await start();
+      if (!auth.currentUser) return '[]';
+      try {
+        return JSON.stringify((await call('listProjects')).projects || []);
+      } catch (e) {
+        if (/Unknown request/.test(e.message)) throw new Error('outdated');
+        throw e;
+      }
+    },
+
+    saveProject: async (projectJson) => {
+      await start();
+      if (!auth.currentUser) return;
+      try {
+        await call('saveProject', { project: JSON.parse(projectJson) });
+      } catch (e) {
+        if (/Unknown request/.test(e.message)) throw new Error('outdated');
+        throw e;
+      }
+    },
+
+    deleteProject: async (id) => {
+      await start();
+      if (!auth.currentUser) return;
+      try {
+        await call('deleteProject', { id });
+      } catch (e) {
+        if (/Unknown request/.test(e.message)) throw new Error('outdated');
+        throw e;
+      }
+    },
+
     // The signed-in user's profile as JSON, or null.
     profile: async () => {
       await start();

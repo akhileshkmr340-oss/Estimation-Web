@@ -52,6 +52,26 @@ window.estimationAccounts = {
 If `profiles.gs` is changed later, use **Deploy > Manage deployments > Edit >
 Version: New version** so the URL stays the same.
 
+## Projects tab (project details)
+
+Since 16 Oct 2026 the script also keeps each user's project details in a
+"Projects" tab: name, client / site, pricing (Auto or Manual), margin % and
+discount %. Drawings, extracted items and Excel files are never saved. The
+tab is created by the script the first time a project is saved.
+
+To update an existing script to this version:
+
+1. Open the Google Sheet, then **Extensions > Apps Script**.
+2. Select everything in `Code.gs` and delete it. Paste the whole of
+   `profiles.gs` (its `FIREBASE_API_KEY` already holds your web API key).
+   Click **Save** (the disk icon).
+3. Click **Deploy > Manage deployments**. Select the existing web app, click
+   the pencil (**Edit**), set **Version** to **New version**, and click
+   **Deploy**. The web app URL stays the same.
+
+Until this is done the website keeps projects in the open tab only and says
+so on the Projects page.
+
 ## Testing locally
 
 1. `firebase emulators:start --only auth --project demo-estimation` (Auth emulator on port 9099).

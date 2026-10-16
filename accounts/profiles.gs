@@ -1,6 +1,9 @@
 /**
  * Estimation website accounts: keeps each user's profile as one row of the
- * "Users" sheet in this spreadsheet (in the owner's Google Drive).
+ * "Users" sheet in this spreadsheet (in the owner's Google Drive), and the
+ * details of each user's projects (name, client/site, pricing mode, margin
+ * and discount) as rows of the "Projects" sheet. Drawings, extracted items
+ * and Excel files are never sent here.
  *
  * The website sends the user's Firebase ID token with every request. The
  * script checks it with Google before reading or writing, so only signed-in
@@ -20,6 +23,9 @@ function doPost(e) {
     const user = verify_(body.idToken);
     if (body.action === 'save') return reply_(save_(user, body.profile || {}));
     if (body.action === 'get') return reply_({ ok: true, profile: find_(user.uid) });
+    if (body.action === 'listProjects') return reply_({ ok: true, projects: listProjects_(user.uid) });
+    if (body.action === 'saveProject') return reply_(saveProject_(user, body.project || {}));
+    if (body.action === 'deleteProject') return reply_(deleteProject_(user, String(body.id || '')));
     return reply_({ ok: false, error: 'Unknown request.' });
   } catch (err) {
     return reply_({ ok: false, error: String(err.message || err) });
@@ -108,6 +114,89 @@ function find_(uid) {
   if (!at) return null;
   const v = s.getRange(at, 1, 1, 7).getValues()[0];
   return { firstName: v[1], lastName: v[2], organization: v[3], department: v[4], mobile: String(v[5]), email: v[6] };
+}
+
+const PROJECTS = 'Projects';
+const PROJECT_HEADERS = ['User ID', 'Project ID', 'Project name', 'Client / Site', 'Pricing', 'Margin %', 'Discount %', 'Created', 'Updated'];
+
+function projectSheet_() {
+  const book = SpreadsheetApp.getActive();
+  let s = book.getSheetByName(PROJECTS);
+  if (!s) {
+    s = book.insertSheet(PROJECTS);
+    s.appendRow(PROJECT_HEADERS);
+    s.setFrozenRows(1);
+    s.getRange(1, 1, 1, PROJECT_HEADERS.length).setFontWeight('bold');
+  }
+  return s;
+}
+
+function num_(v) {
+  const n = Number(v);
+  return isFinite(n) && n >= 0 && n <= 1000 ? n : 0;
+}
+
+/** The caller's projects, newest first. */
+function listProjects_(uid) {
+  const s = projectSheet_();
+  const n = s.getLastRow();
+  if (n < 2) return [];
+  const rows = s.getRange(2, 1, n - 1, PROJECT_HEADERS.length).getValues();
+  const out = [];
+  rows.forEach(function (v) {
+    if (v[0] !== uid) return;
+    out.push({
+      id: String(v[1]), name: String(v[2]), client: String(v[3]), pricing: v[4] === 'Manual' ? 'manual' : 'auto',
+      margin: num_(v[5]), discount: num_(v[6]),
+      createdAt: v[7] instanceof Date ? v[7].toISOString() : '', updatedAt: v[8] instanceof Date ? v[8].toISOString() : '',
+    });
+  });
+  out.sort(function (a, b) { return a.updatedAt < b.updatedAt ? 1 : -1; });
+  return out;
+}
+
+function projectRow_(s, uid, id) {
+  const n = s.getLastRow();
+  if (n < 2) return 0;
+  const ids = s.getRange(2, 1, n - 1, 2).getValues();
+  for (let i = 0; i < ids.length; i++) if (ids[i][0] === uid && String(ids[i][1]) === id) return i + 2;
+  return 0;
+}
+
+function saveProject_(user, p) {
+  const id = clean_(p.id, 40);
+  const name = clean_(p.name, 120);
+  if (!/^[a-z0-9]{6,40}$/.test(id) || !name) return { ok: false, error: 'The project needs a name.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const s = projectSheet_();
+    const now = new Date();
+    const values = [user.uid, id, name, clean_(p.client, 160), p.pricing === 'manual' ? 'Manual' : 'Auto', num_(p.margin), num_(p.discount)];
+    const at = projectRow_(s, user.uid, id);
+    if (at) {
+      s.getRange(at, 1, 1, values.length).setValues([values]);
+      s.getRange(at, 9).setValue(now);
+    } else {
+      s.appendRow(values.concat([now, now]));
+    }
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function deleteProject_(user, id) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const s = projectSheet_();
+    const at = projectRow_(s, user.uid, id);
+    if (at) s.deleteRow(at);
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function reply_(obj) {
