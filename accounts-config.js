@@ -7,6 +7,13 @@
 // While either is empty, accounts are off and the website works without
 // logging in.
 window.estimationAccounts = {
-  firebase: null,
-  profileScript: '',
+  firebase: {
+    apiKey: 'AIzaSyDn181WEUUq6Dw9F0-2OgXzm0vbe6cfLkI',
+    authDomain: 'estimation-6fa32.firebaseapp.com',
+    projectId: 'estimation-6fa32',
+    storageBucket: 'estimation-6fa32.firebasestorage.app',
+    messagingSenderId: '532959505940',
+    appId: '1:532959505940:web:bbca06110ffa1ed628c101',
+  },
+  profileScript: 'https://script.google.com/macros/s/AKfycbxI-Q-YewvoOSxiPIPQMpX64ZO96FtXJ9IpZerylDhmW96GZakc5nmH1epWc3zMGJKG/exec',
 };
