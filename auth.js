@@ -13,6 +13,8 @@
   const settings = window.estimationAccounts || {};
   const config = settings.firebase || null;
   const script = settings.profileScript || '';
+  // Live price search service (server/price-search); off while empty.
+  const priceSearch = settings.priceSearch || '';
   const configured = !!(config && config.apiKey && script);
   let ready = null;
   let auth = null;
@@ -162,6 +164,34 @@
         if (/Unknown request/.test(e.message)) throw new Error('outdated');
         throw e;
       }
+    },
+
+    // Live price search: only for signed-in users, as the search keys cost
+    // money. Sends one item and returns the service's answer (JSON).
+    priceSearchConfigured: () => configured && !!priceSearch,
+
+    searchPrices: async (itemJson) => {
+      await start();
+      if (!auth.currentUser) throw new Error('Log in to search prices.');
+      const idToken = await auth.currentUser.getIdToken();
+      let res;
+      try {
+        res = await fetch(priceSearch, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+          body: itemJson,
+        });
+      } catch (e) {
+        throw new Error('The price search service did not answer. Check the internet and try again.');
+      }
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      if (!data || !data.ok) throw new Error((data && data.error) || 'The price search gave an unexpected answer (' + res.status + ').');
+      return JSON.stringify(data);
+    },
+
+    openLink: (url) => {
+      if (/^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener');
     },
 
     deleteProject: async (id) => {
