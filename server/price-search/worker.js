@@ -14,7 +14,7 @@
 //   OPENAI_MODEL      default gpt-5-mini
 //   ALLOWED_ORIGINS   comma-separated, default https://akhileshkmr340-oss.github.io
 
-const DEFAULT_ORIGINS = 'https://akhileshkmr340-oss.github.io';
+const DEFAULT_ORIGINS = 'https://estimation-6fa32.web.app,https://estimation-6fa32.firebaseapp.com,https://akhileshkmr340-oss.github.io';
 
 export default {
   async fetch(request, env) {

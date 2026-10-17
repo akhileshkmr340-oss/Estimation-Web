@@ -1,0 +1,29 @@
+# Publishes the website to Firebase Hosting (https://estimation-6fa32.web.app)
+# on every push to main. Needs the repository secret FIREBASE_SERVICE_ACCOUNT
+# (a service account key of the Firebase project); see README.md.
+name: Deploy to Firebase Hosting
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the Firebase key is set
+        id: key
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+            echo "::warning::Add the FIREBASE_SERVICE_ACCOUNT secret to publish to Firebase Hosting."
+          fi
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: steps.key.outputs.skip != '1'
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: estimation-6fa32
