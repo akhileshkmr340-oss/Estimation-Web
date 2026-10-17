@@ -1,0 +1,43 @@
+# Checks the published site: the pages answer, they match this commit, and
+# Firebase Auth allows logins on the address. Results show as notices.
+name: Check the website
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy to Firebase Hosting]
+    types: [completed]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pages answer and match this commit
+        run: |
+          for site in https://estimation-6fa32.web.app; do
+            for f in "" main.dart.js auth.js accounts-config.js; do
+              code=$(curl -s -o /tmp/f -w '%{http_code}' "$site/$f")
+              same=""
+              if [ -n "$f" ]; then cmp -s /tmp/f "$f" && same=" (same as repo)" || same=" (DIFFERENT from repo)"; fi
+              echo "::notice::$site/$f -> $code$same"
+            done
+          done
+      - name: Logins allowed on the address
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$KEY" > /tmp/sa.json
+          pip install -q google-auth requests >/dev/null 2>&1
+          python3 - <<'PY'
+          import json
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+          c = service_account.Credentials.from_service_account_file('/tmp/sa.json', scopes=['https://www.googleapis.com/auth/cloud-platform'])
+          r = AuthorizedSession(c).get('https://identitytoolkit.googleapis.com/admin/v2/projects/estimation-6fa32/config')
+          if r.ok:
+              d = r.json().get('authorizedDomains', [])
+              print('::notice::Auth authorized domains: ' + ', '.join(d))
+              print('::notice::web.app allowed: ' + str('estimation-6fa32.web.app' in d))
+          else:
+              print('::warning::Could not read the Auth settings (' + str(r.status_code) + ')')
+          PY
+          rm -f /tmp/sa.json
