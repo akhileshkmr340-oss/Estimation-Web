@@ -21,6 +21,8 @@ jobs:
               echo "::notice::$site/$f -> $code$same"
             done
           done
+      - name: Old GitHub Pages address is off
+        run: echo "::notice::https://akhileshkmr340-oss.github.io/Estimation-Web/ -> $(curl -s -o /dev/null -w '%{http_code}' https://akhileshkmr340-oss.github.io/Estimation-Web/)"
       - name: Logins allowed on the address
         env:
           KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
