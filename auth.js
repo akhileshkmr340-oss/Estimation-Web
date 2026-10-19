@@ -205,6 +205,33 @@
       }
     },
 
+    // The user's price database from the Sheet (JSON: rates, uplift,
+    // updated, file); rates is null when there is none or this account may
+    // not use it. Throws 'outdated' when the script predates it.
+    rates: async () => {
+      await start();
+      if (!auth.currentUser) return JSON.stringify({ rates: null });
+      try {
+        return JSON.stringify(await call('getRates'));
+      } catch (e) {
+        if (/Unknown request/.test(e.message)) throw new Error('outdated');
+        throw e;
+      }
+    },
+
+    // Saves the price database (rates, uplift, fileName, fileBase64) to the
+    // Sheet and the workbook to Drive. Returns JSON: count, updated, file.
+    saveRates: async (json) => {
+      await start();
+      if (!auth.currentUser) throw new Error('Log in to save your price database.');
+      try {
+        return JSON.stringify(await call('saveRates', JSON.parse(json)));
+      } catch (e) {
+        if (/Unknown request/.test(e.message)) throw new Error('outdated');
+        throw e;
+      }
+    },
+
     // The signed-in user's profile as JSON, or null.
     profile: async () => {
       await start();

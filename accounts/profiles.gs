@@ -10,6 +10,12 @@
  * users can add rows, and each user only their own row. Passwords are never
  * sent here; Firebase Authentication keeps them.
  *
+ * The "Rate database" sheet holds the owner's own price database (rates
+ * from their earlier BOQs and offers). Only the account that first saved it,
+ * and the emails listed in the "Rate database access" sheet, can read it;
+ * the uploaded workbook is also kept in the Drive folder "Estimation price
+ * database".
+ *
  * Set FIREBASE_API_KEY below to the Firebase web config's apiKey, then
  * Deploy > New deployment > Web app, Execute as: Me, Who has access: Anyone.
  */
@@ -26,6 +32,8 @@ function doPost(e) {
     if (body.action === 'listProjects') return reply_({ ok: true, projects: listProjects_(user.uid) });
     if (body.action === 'saveProject') return reply_(saveProject_(user, body.project || {}));
     if (body.action === 'deleteProject') return reply_(deleteProject_(user, String(body.id || '')));
+    if (body.action === 'getRates') return reply_(getRates_(user));
+    if (body.action === 'saveRates') return reply_(saveRates_(user, body));
     return reply_({ ok: false, error: 'Unknown request.' });
   } catch (err) {
     return reply_({ ok: false, error: String(err.message || err) });
@@ -194,6 +202,87 @@ function deleteProject_(user, id) {
     const at = projectRow_(s, user.uid, id);
     if (at) s.deleteRow(at);
     return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+const RATES = 'Rate database';
+const RATES_ACCESS = 'Rate database access';
+const RATE_HEADERS = ['Description', 'Heading above it in the BOQ', 'UOM', 'Supply rate (₹)', 'Service rate (₹)', 'Source sheet', 'Row', 'Single quoted rate'];
+
+/** Whether this account may use the price database. */
+function ratesAllowed_(user) {
+  const owner = PropertiesService.getScriptProperties().getProperty('RATES_OWNER');
+  if (!owner || owner === user.uid) return true;
+  const s = SpreadsheetApp.getActive().getSheetByName(RATES_ACCESS);
+  if (!s || s.getLastRow() < 2 || !user.email) return false;
+  const emails = s.getRange(2, 1, s.getLastRow() - 1, 1).getValues();
+  return emails.some(function (v) { return String(v[0]).trim().toLowerCase() === user.email.toLowerCase(); });
+}
+
+function getRates_(user) {
+  const props = PropertiesService.getScriptProperties();
+  const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+  if (!s || s.getLastRow() < 2 || !ratesAllowed_(user)) return { ok: true, rates: null };
+  const rows = s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues();
+  return {
+    ok: true,
+    uplift: Number(props.getProperty('RATES_UPLIFT') || 0),
+    updated: props.getProperty('RATES_UPDATED') || '',
+    file: props.getProperty('RATES_FILE') || '',
+    rates: rows.map(function (v) {
+      return { item: String(v[0]), context: String(v[1]), unit: String(v[2]), supply: v[3] === '' ? null : Number(v[3]), service: v[4] === '' ? null : Number(v[4]), sheet: String(v[5]), row: Number(v[6]) || 0, single: v[7] === true || v[7] === 'Yes' };
+    }),
+  };
+}
+
+function text_(v, max) {
+  // A leading = + - @ would make the cell a formula; the apostrophe keeps it text.
+  const t = String(v == null ? '' : v).trim().slice(0, max);
+  return /^[=+\-@]/.test(t) ? "'" + t : t;
+}
+
+function money_(v) {
+  const n = Number(v);
+  return v != null && v !== '' && isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : '';
+}
+
+function saveRates_(user, body) {
+  const rates = body.rates;
+  if (!Array.isArray(rates) || !rates.length || rates.length > 20000) return { ok: false, error: 'The price database has no rates.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const owner = props.getProperty('RATES_OWNER');
+    if (owner && owner !== user.uid) return { ok: false, error: 'Only the account that first saved the price database can replace it.' };
+    const book = SpreadsheetApp.getActive();
+    let s = book.getSheetByName(RATES);
+    if (!s) s = book.insertSheet(RATES);
+    s.clear();
+    const values = rates.map(function (r) {
+      return [text_(r.item, 2000), text_(r.context, 1000), text_(r.unit, 40), money_(r.supply), money_(r.service), text_(r.sheet, 120), Number(r.row) || '', r.single ? 'Yes' : 'No'];
+    });
+    s.getRange(1, 1, 1, RATE_HEADERS.length).setValues([RATE_HEADERS]).setFontWeight('bold');
+    s.getRange(2, 1, values.length, RATE_HEADERS.length).setValues(values);
+    s.setFrozenRows(1);
+    let a = book.getSheetByName(RATES_ACCESS);
+    if (!a) {
+      a = book.insertSheet(RATES_ACCESS);
+      a.appendRow(['Other emails that may use the price database (one per row). The account that saved it can always use it.']);
+      a.getRange(1, 1).setFontWeight('bold');
+    }
+    let file = '';
+    if (body.fileBase64 && body.fileName) {
+      const folders = DriveApp.getFoldersByName('Estimation price database');
+      const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder('Estimation price database');
+      const blob = Utilities.newBlob(Utilities.base64Decode(body.fileBase64), MimeType.MICROSOFT_EXCEL, clean_(body.fileName, 120) || 'Rate_Database.xlsx');
+      file = folder.createFile(blob).getUrl();
+    }
+    const updated = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM yyyy');
+    props.setProperties({ RATES_OWNER: owner || user.uid, RATES_UPLIFT: String(Number(body.uplift) || 0), RATES_UPDATED: updated, RATES_FILE: file || props.getProperty('RATES_FILE') || '' });
+    return { ok: true, count: values.length, updated: updated, file: file };
   } finally {
     lock.releaseLock();
   }
