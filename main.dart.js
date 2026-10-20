@@ -68058,7 +68058,7 @@ o=p.c
 n=o.as
 if(n!=null)m=n.b.length===0&&n.c.length===0
 else m=!0
-n=m&&B.c.G(p.a.d.a.a).length===0?"projectexecution_mv@symaticindia.com":B.c.G(p.a.d.a.a)
+n=m&&B.c.G(p.a.d.a.a).length===0?"akhileshkmr2906@gmail.com":B.c.G(p.a.d.a.a)
 s=3
 return A.K(o.a7I(m&&B.c.G(p.a.e.a.a).length===0?"akhilesh.singh@symaticindia.com":B.c.G(p.a.e.a.a),n,l),$async$$0)
 case 3:q="Saved "+l.length+" suppliers to your Google Sheet."
@@ -68072,7 +68072,7 @@ $2(a,b){var s,r,q,p,o,n,m,l,k,j=this,i=null,h=j.b,g=h.as,f=g==null,e=!f
 if(e&&!j.a.r){s=j.a
 s.r=!0
 r=g.c
-if(r.length===0&&g.b.length===0)r="projectexecution_mv@symaticindia.com"
+if(r.length===0&&g.b.length===0)r="akhileshkmr2906@gmail.com"
 s.d.se6(r)
 r=g.d
 if(r.length===0&&g.b.length===0)r="akhilesh.singh@symaticindia.com"
