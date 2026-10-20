@@ -16,6 +16,14 @@
  * the uploaded workbook is also kept in the Drive folder "Estimation price
  * database".
  *
+ * Requests for quote: the owner's supplier list is kept in the "Suppliers"
+ * sheet, and the script emails each supplier a Request for Quote for the
+ * items that have no rate (GmailApp, from the owner's Gmail or a "Send mail
+ * as" address set up in it). Only the account that owns the price database
+ * can send, and only to the suppliers in that sheet. The "RFQ log" sheet
+ * records each email sent (date, project, supplier, item count), so the
+ * same request is never sent twice.
+ *
  * Set FIREBASE_API_KEY below to the Firebase web config's apiKey, then
  * Deploy > New deployment > Web app, Execute as: Me, Who has access: Anyone.
  */
@@ -34,6 +42,9 @@ function doPost(e) {
     if (body.action === 'deleteProject') return reply_(deleteProject_(user, String(body.id || '')));
     if (body.action === 'getRates') return reply_(getRates_(user));
     if (body.action === 'saveRates') return reply_(saveRates_(user, body));
+    if (body.action === 'getSuppliers') return reply_(getSuppliers_(user));
+    if (body.action === 'saveSuppliers') return reply_(saveSuppliers_(user, body));
+    if (body.action === 'sendRfq') return reply_(sendRfq_(user, body));
     return reply_({ ok: false, error: 'Unknown request.' });
   } catch (err) {
     return reply_({ ok: false, error: String(err.message || err) });
@@ -286,6 +297,161 @@ function saveRates_(user, body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+const SUPPLIERS = 'Suppliers';
+const SUPPLIER_HEADERS = ['Supplier', 'Contact person', 'Email', 'CC', 'Supplies (keywords)'];
+const RFQ_LOG = 'RFQ log';
+const RFQ_LOG_HEADERS = ['Sent', 'Project', 'Supplier', 'Email', 'Items', 'Request ID'];
+
+/** Only the owner of the price database may keep suppliers and send mail. */
+function rfqOwner_(user) {
+  const owner = PropertiesService.getScriptProperties().getProperty('RATES_OWNER');
+  return !!owner && owner === user.uid;
+}
+
+function rfqSettings_() {
+  const props = PropertiesService.getScriptProperties();
+  return { from: props.getProperty('RFQ_FROM') || '', cc: props.getProperty('RFQ_CC') || '', auto: props.getProperty('RFQ_AUTO') === 'yes' };
+}
+
+/** The addresses the script may send from: the Gmail account and its "Send mail as" addresses. */
+function senders_() {
+  return [Session.getEffectiveUser().getEmail()].concat(GmailApp.getAliases()).map(function (a) { return String(a).toLowerCase(); });
+}
+
+function getSuppliers_(user) {
+  const owner = PropertiesService.getScriptProperties().getProperty('RATES_OWNER');
+  if (owner && owner !== user.uid) return { ok: true, allowed: false, suppliers: [] };
+  const s = SpreadsheetApp.getActive().getSheetByName(SUPPLIERS);
+  const rows = !s || s.getLastRow() < 2 ? [] : s.getRange(2, 1, s.getLastRow() - 1, SUPPLIER_HEADERS.length).getValues();
+  const log = SpreadsheetApp.getActive().getSheetByName(RFQ_LOG);
+  const out = { ok: true, allowed: true, suppliers: rows.map(function (v) { return { name: String(v[0]), contact: String(v[1]), email: String(v[2]), cc: String(v[3]), supplies: String(v[4]) }; }), sent: log ? Math.max(0, log.getLastRow() - 1) : 0 };
+  const st = rfqSettings_();
+  out.from = st.from; out.cc = st.cc; out.auto = st.auto;
+  try {
+    out.senders = senders_();
+    out.mailReady = true;
+  } catch (err) {
+    out.mailReady = false;
+    out.mailError = String(err.message || err);
+  }
+  return out;
+}
+
+function emailOk_(e) {
+  return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(e);
+}
+
+function emails_(v) {
+  return String(v || '').split(/[,;\s]+/).map(function (e) { return e.trim(); }).filter(function (e) { return e && emailOk_(e); });
+}
+
+function saveSuppliers_(user, body) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const owner = props.getProperty('RATES_OWNER');
+    if (owner && owner !== user.uid) return { ok: false, error: 'Only the account that owns the price database can keep the supplier list.' };
+    if (!owner) props.setProperty('RATES_OWNER', user.uid);
+    if (Array.isArray(body.suppliers)) {
+      if (body.suppliers.length > 2000) return { ok: false, error: 'Too many suppliers.' };
+      const values = body.suppliers.map(function (r) {
+        return [text_(r.name, 200), text_(r.contact, 200), emails_(r.email).join(', '), emails_(r.cc).join(', '), text_(r.supplies, 2000)];
+      }).filter(function (v) { return v[0] && v[2]; });
+      const book = SpreadsheetApp.getActive();
+      let s = book.getSheetByName(SUPPLIERS);
+      if (!s) s = book.insertSheet(SUPPLIERS);
+      s.clear();
+      s.getRange(1, 1, 1, SUPPLIER_HEADERS.length).setValues([SUPPLIER_HEADERS]).setFontWeight('bold');
+      if (values.length) s.getRange(2, 1, values.length, SUPPLIER_HEADERS.length).setValues(values);
+      s.setFrozenRows(1);
+    }
+    if (body.from != null) {
+      const from = emails_(body.from)[0] || '';
+      props.setProperty('RFQ_FROM', from);
+    }
+    if (body.cc != null) props.setProperty('RFQ_CC', emails_(body.cc).join(', '));
+    if (body.auto != null) props.setProperty('RFQ_AUTO', body.auto ? 'yes' : 'no');
+    return getSuppliers_(user);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function esc_(v) {
+  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** The RFQ email body, in the layout of the owner's own RFQ mails. */
+function rfqHtml_(lines, signature) {
+  const td = 'border:1px solid #000;padding:3px 6px;font-family:Calibri,Arial,sans-serif;font-size:11pt;vertical-align:top;';
+  const rows = lines.map(function (l) {
+    const b = l.h ? 'font-weight:bold;' : '';
+    return '<tr><td style="' + td + 'text-align:center;' + b + '">' + esc_(l.no) + '</td><td style="' + td + b + 'text-align:justify;">' + esc_(l.d).replace(/\n/g, '<br>') +
+      '</td><td style="' + td + 'text-align:right;">' + esc_(l.q) + '</td><td style="' + td + 'text-align:center;">' + esc_(l.u) + '</td></tr>';
+  }).join('');
+  const head = '<tr><th style="' + td + '">Item No.</th><th style="' + td + '">Description</th><th style="' + td + '">Qty</th><th style="' + td + '">Unit</th></tr>';
+  const p = 'font-family:Calibri,Arial,sans-serif;font-size:11pt;';
+  return '<p style="' + p + '">Dear Sir,</p><p style="' + p + '">Please refer to the item below and kindly submit your best offer for the same.</p>' +
+    '<table style="border-collapse:collapse;max-width:800px;">' + head + rows + '</table>' +
+    '<p style="' + p + '">Regards,<br>' + signature.map(esc_).join('<br>') + '</p>';
+}
+
+function rfqText_(lines, signature) {
+  return 'Dear Sir,\n\nPlease refer to the item below and kindly submit your best offer for the same.\n\n' +
+    lines.map(function (l) { return [l.no, l.d, l.q, l.u].join('\t'); }).join('\n') + '\n\nRegards,\n' + signature.join('\n');
+}
+
+function sendRfq_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can send requests for quote.' };
+  const mails = Array.isArray(body.mails) ? body.mails.slice(0, 50) : [];
+  const project = text_(body.project, 200) || 'Project';
+  const signature = (Array.isArray(body.signature) ? body.signature : []).slice(0, 6).map(function (v) { return String(v).slice(0, 200); });
+  const st = rfqSettings_();
+  const from = st.from.toLowerCase();
+  if (from && senders_().indexOf(from) < 0) {
+    return { ok: false, error: from + ' is not set up yet as a "Send mail as" address in the Gmail account that runs the Sheet script (' + Session.getEffectiveUser().getEmail() + ').' };
+  }
+  const book = SpreadsheetApp.getActive();
+  const s = book.getSheetByName(SUPPLIERS);
+  const rows = !s || s.getLastRow() < 2 ? [] : s.getRange(2, 1, s.getLastRow() - 1, SUPPLIER_HEADERS.length).getValues();
+  let log = book.getSheetByName(RFQ_LOG);
+  if (!log) {
+    log = book.insertSheet(RFQ_LOG);
+    log.getRange(1, 1, 1, RFQ_LOG_HEADERS.length).setValues([RFQ_LOG_HEADERS]).setFontWeight('bold');
+    log.setFrozenRows(1);
+  }
+  const done = log.getLastRow() < 2 ? [] : log.getRange(2, 6, log.getLastRow() - 1, 1).getValues().map(function (v) { return String(v[0]); });
+  const sent = [], skipped = [], errors = [];
+  mails.forEach(function (m) {
+    const name = String(m.supplier || '');
+    const row = rows.filter(function (v) { return String(v[0]) === name; })[0];
+    const id = String(m.id || '').slice(0, 80);
+    if (!row) return errors.push({ supplier: name, error: 'not in the Suppliers sheet' });
+    if (id && done.indexOf(id) >= 0) return skipped.push(name);
+    const to = emails_(row[2]);
+    if (!to.length) return errors.push({ supplier: name, error: 'no email address' });
+    const lines = (Array.isArray(m.lines) ? m.lines : []).slice(0, 1000).map(function (l) {
+      return { no: String(l.no || '').slice(0, 20), d: String(l.d || '').slice(0, 3000), q: String(l.q == null ? '' : l.q).slice(0, 20), u: String(l.u || '').slice(0, 20), h: !!l.h };
+    });
+    if (!lines.length) return;
+    const cc = emails_(row[3]).concat(emails_(st.cc)).filter(function (e, i, a) { return a.indexOf(e) === i && to.indexOf(e) < 0; });
+    const opts = { htmlBody: rfqHtml_(lines, signature) };
+    if (cc.length) opts.cc = cc.join(',');
+    if (from) opts.from = from;
+    try {
+      GmailApp.sendEmail(to.join(','), 'RFQ for ' + project, rfqText_(lines, signature), opts);
+      const items = lines.filter(function (l) { return !l.h; }).length;
+      log.appendRow([new Date(), text_(project, 200), text_(name, 200), to.join(', '), items, id]);
+      done.push(id);
+      sent.push(name);
+    } catch (err) {
+      errors.push({ supplier: name, error: String(err.message || err) });
+    }
+  });
+  return { ok: true, sent: sent, skipped: skipped, errors: errors };
 }
 
 function reply_(obj) {

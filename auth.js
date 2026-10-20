@@ -232,6 +232,20 @@
       }
     },
 
+    // Requests for quote: 'getSuppliers', 'saveSuppliers' and 'sendRfq'
+    // (JSON in and out). Throws 'outdated' when the script predates them.
+    rfq: async (action, json) => {
+      await start();
+      if (!auth.currentUser) throw new Error('Log in to request quotes.');
+      if (!/^(getSuppliers|saveSuppliers|sendRfq)$/.test(action)) throw new Error('Unknown request.');
+      try {
+        return JSON.stringify(await call(action, JSON.parse(json)));
+      } catch (e) {
+        if (/Unknown request/.test(e.message)) throw new Error('outdated');
+        throw e;
+      }
+    },
+
     // The signed-in user's profile as JSON, or null.
     profile: async () => {
       await start();
