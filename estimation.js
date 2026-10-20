@@ -279,6 +279,17 @@
   }
 
   window.estimation = {
+    // The RFQ window: opened by the main window, it reads the main window's
+    // processed projects through estimationRfqData (memory only).
+    openWindow: (url, name) => {
+      const w = window.open(url, name, 'popup,width=' + Math.min(1440, screen.availWidth) + ',height=' + Math.min(940, screen.availHeight));
+      if (w) w.focus();
+      return !!w;
+    },
+    setRfqData: (fn) => { window.estimationRfqData = fn; },
+    rfqFromOpener: () => {
+      try { return window.opener && window.opener.estimationRfqData ? String(window.opener.estimationRfqData()) : null; } catch (e) { return null; }
+    },
     pickFiles, takeDropped, onDrop, saveFile, shareFile, canShareFiles,
     clearStorage, ocrAvailable, ocrImage, ocrPdf, readDwg, extract, workerCount,
   };

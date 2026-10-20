@@ -504,7 +504,15 @@ function mailbox_(book) {
 // (Gmail label "RFQ") and mail from addresses in the Suppliers sheet.
 // Scope 'all' shows the whole Gmail account.
 const RFQ_LABEL = 'RFQ';
-const FOLDERS = { inbox: 'in:inbox', sent: 'in:sent', outbox: 'in:drafts', junk: 'in:spam', deleted: 'in:trash' };
+// Outlook's folders in Gmail: Drafts, Outbox = scheduled mail, Archive = the
+// "RFQ-Archive" label (set by Archive on the website) outside the Inbox.
+const ARCHIVE_LABEL = 'RFQ-Archive';
+const FOLDERS = { inbox: 'in:inbox', drafts: 'in:drafts', sent: 'in:sent', deleted: 'in:trash', archive: 'label:' + ARCHIVE_LABEL + ' -in:inbox -in:trash -in:spam',
+  junk: 'in:spam', outbox: 'in:scheduled' };
+
+function archiveLabel_() {
+  return GmailApp.getUserLabelByName(ARCHIVE_LABEL) || GmailApp.createLabel(ARCHIVE_LABEL);
+}
 
 function rfqLabel_() {
   return GmailApp.getUserLabelByName(RFQ_LABEL) || GmailApp.createLabel(RFQ_LABEL);
@@ -544,16 +552,25 @@ function mailList_(user, body) {
   const start = Math.max(0, Number(body.start) || 0);
   const threads = GmailApp.search(q, start, 25);
   const me = senders_();
+  // Counts beside the folders, as in Outlook: unread in Inbox and Junk, all in Drafts.
   const counts = {};
-  if (start === 0) counts.inbox = GmailApp.search('in:inbox is:unread ' + (scope === 'all' ? '' : rfqQuery_()), 0, 100).length;
+  if (start === 0) {
+    const sq = scope === 'all' ? '' : ' ' + rfqQuery_();
+    counts.inbox = GmailApp.search('in:inbox is:unread' + sq, 0, 100).length;
+    counts.drafts = GmailApp.search('in:drafts' + sq, 0, 100).length;
+    counts.junk = GmailApp.search('in:spam is:unread' + sq, 0, 100).length;
+  }
   return {
-    ok: true, folder: folder, scope: scope, start: start, more: threads.length === 25, unread: counts.inbox,
+    ok: true, folder: folder, scope: scope, start: start, more: threads.length === 25, unread: counts.inbox, counts: start === 0 ? counts : null,
     threads: threads.map(function (t) {
       const ms = t.getMessages();
       const last = ms[ms.length - 1];
       // Who the thread is with: the sender, or for one's own mail the recipient.
       const other = me.indexOf(address_(last.getFrom())) >= 0 ? 'To: ' + last.getTo() : last.getFrom();
-      return { id: t.getId(), subject: t.getFirstMessageSubject(), date: t.getLastMessageDate().toISOString(), with: other,
+      // Replied / forwarded arrows: one's own answers after the first email.
+      const answers = ms.slice(1).filter(function (m) { return me.indexOf(address_(m.getFrom())) >= 0; });
+      return { id: t.getId(), replied: answers.some(function (m) { return /^re:/i.test(m.getSubject()); }),
+        forwarded: ms.some(function (m) { return me.indexOf(address_(m.getFrom())) >= 0 && /^fwd?:/i.test(m.getSubject()); }), subject: t.getFirstMessageSubject(), date: t.getLastMessageDate().toISOString(), with: other,
         count: t.getMessageCount(), unread: t.isUnread(), snippet: String(last.getPlainBody() || '').replace(/\s+/g, ' ').slice(0, 140),
         attachments: ms.some(function (m) { return m.getAttachments().length > 0; }) };
     }),
@@ -586,6 +603,9 @@ function mailMove_(user, body) {
   else if (what === 'junk') t.moveToSpam();
   else if (what === 'notJunk') t.moveToInbox();
   else if (what === 'unread') t.markUnread();
+  else if (what === 'read') t.markRead();
+  else if (what === 'archive') { t.addLabel(archiveLabel_()); t.moveToArchive(); }
+  else if (what === 'inbox') { try { t.removeLabel(archiveLabel_()); } catch (e) {} t.moveToInbox(); }
   else return { ok: false, error: 'Unknown change.' };
   return { ok: true };
 }
