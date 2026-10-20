@@ -17,12 +17,18 @@
  * database".
  *
  * Requests for quote: the owner's supplier list is kept in the "Suppliers"
- * sheet, and the script emails each supplier a Request for Quote for the
- * items that have no rate (GmailApp, from the owner's Gmail or a "Send mail
- * as" address set up in it). Only the account that owns the price database
- * can send, and only to the suppliers in that sheet. The "RFQ log" sheet
- * records each email sent (date, project, supplier, item count), so the
- * same request is never sent twice.
+ * sheet. The owner writes each Request for Quote on the website's RFQ tab
+ * (From, To, CC, text and the items with no rate) and clicks Send; the
+ * script then emails it (GmailApp, from the owner's Gmail or a "Send mail
+ * as" address set up in it), one email per To address. Only the account
+ * that owns the price database can send. The "RFQ log" sheet records each
+ * email sent (date, project, supplier, email, item count). Files attached on
+ * the RFQ tab are also saved in Drive ("Estimation RFQ/<project>"). The
+ * "RFQ mailbox" sheet keeps a copy of each email sent. The website's RFQ
+ * mailbox shows the Gmail folders (Inbox, Sent, Outbox = Drafts, Junk,
+ * Deleted) for RFQ mail only: threads labelled "RFQ" (every email the
+ * website sends gets the label) and mail from the Suppliers sheet's
+ * addresses; Reply, Reply all and Forward are sent from the website too.
  *
  * Set FIREBASE_API_KEY below to the Firebase web config's apiKey, then
  * Deploy > New deployment > Web app, Execute as: Me, Who has access: Anyone.
@@ -45,6 +51,13 @@ function doPost(e) {
     if (body.action === 'getSuppliers') return reply_(getSuppliers_(user));
     if (body.action === 'saveSuppliers') return reply_(saveSuppliers_(user, body));
     if (body.action === 'sendRfq') return reply_(sendRfq_(user, body));
+    if (body.action === 'sendMail') return reply_(sendMail_(user, body));
+    if (body.action === 'mailList') return reply_(mailList_(user, body));
+    if (body.action === 'mailThread') return reply_(mailThread_(user, body));
+    if (body.action === 'mailMove') return reply_(mailMove_(user, body));
+    if (body.action === 'mailAttachment') return reply_(mailAttachment_(user, body));
+    if (body.action === 'mailDraft') return reply_(mailDraft_(user, body));
+    if (body.action === 'mailSaveFiles') return reply_(mailSaveFiles_(user, body));
     return reply_({ ok: false, error: 'Unknown request.' });
   } catch (err) {
     return reply_({ ok: false, error: String(err.message || err) });
@@ -452,6 +465,280 @@ function sendRfq_(user, body) {
     }
   });
   return { ok: true, sent: sent, skipped: skipped, errors: errors };
+}
+
+/** The RFQ body written on the website: its text, the item table and the signature. */
+function mailHtml_(intro, lines, closing) {
+  const td = 'border:1px solid #000;padding:3px 6px;font-family:Calibri,Arial,sans-serif;font-size:11pt;vertical-align:top;';
+  const p = 'font-family:Calibri,Arial,sans-serif;font-size:11pt;';
+  const para = function (t) {
+    return String(t || '').split(/\n{2,}/).filter(function (x) { return x.trim(); }).map(function (x) { return '<p style="' + p + '">' + esc_(x).replace(/\n/g, '<br>') + '</p>'; }).join('');
+  };
+  const rows = lines.map(function (l) {
+    const b = l.h ? 'font-weight:bold;' : '';
+    return '<tr><td style="' + td + 'text-align:center;' + b + '">' + esc_(l.no) + '</td><td style="' + td + b + 'text-align:justify;">' + esc_(l.d).replace(/\n/g, '<br>') +
+      '</td><td style="' + td + 'text-align:right;">' + esc_(l.q) + '</td><td style="' + td + 'text-align:center;">' + esc_(l.u) + '</td></tr>';
+  }).join('');
+  const head = '<tr><th style="' + td + '">Item No.</th><th style="' + td + '">Description</th><th style="' + td + '">Qty</th><th style="' + td + '">Unit</th></tr>';
+  return para(intro) + (lines.length ? '<table style="border-collapse:collapse;max-width:800px;">' + head + rows + '</table>' : '') + para(closing);
+}
+
+// The "RFQ mailbox" sheet: a copy of every email sent from the RFQ tab (the
+// text with its item table, the names of attached files, links to the email
+// in Gmail and to its files in Drive).
+const MAILBOX = 'RFQ mailbox';
+const MAILBOX_HEADERS = ['Sent', 'Project', 'From', 'To', 'CC', 'Subject', 'Mail text', 'Attachments', 'Gmail link', 'Drive folder'];
+
+function mailbox_(book) {
+  let box = book.getSheetByName(MAILBOX);
+  if (!box) {
+    box = book.insertSheet(MAILBOX);
+    box.getRange(1, 1, 1, MAILBOX_HEADERS.length).setValues([MAILBOX_HEADERS]).setFontWeight('bold');
+    box.setFrozenRows(1);
+  }
+  return box;
+}
+
+// ---- The RFQ mailbox on the website: the owner's Gmail, folder by folder ----
+// Scope 'rfq' (the default) shows only RFQ mail: threads the website sent
+// (Gmail label "RFQ") and mail from addresses in the Suppliers sheet.
+// Scope 'all' shows the whole Gmail account.
+const RFQ_LABEL = 'RFQ';
+const FOLDERS = { inbox: 'in:inbox', sent: 'in:sent', outbox: 'in:drafts', junk: 'in:spam', deleted: 'in:trash' };
+
+function rfqLabel_() {
+  return GmailApp.getUserLabelByName(RFQ_LABEL) || GmailApp.createLabel(RFQ_LABEL);
+}
+
+function supplierEmails_() {
+  const s = SpreadsheetApp.getActive().getSheetByName(SUPPLIERS);
+  const rows = !s || s.getLastRow() < 2 ? [] : s.getRange(2, 3, s.getLastRow() - 1, 2).getValues();
+  const out = [];
+  rows.forEach(function (r) { emails_(r[0] + ',' + r[1]).forEach(function (e) { e = e.toLowerCase(); if (out.indexOf(e) < 0) out.push(e); }); });
+  return out;
+}
+
+function rfqQuery_() {
+  const from = supplierEmails_().slice(0, 60);
+  return '(label:' + RFQ_LABEL + (from.length ? ' OR from:(' + from.join(' OR ') + ')' : '') + ')';
+}
+
+function address_(v) {
+  const m = String(v || '').match(/<([^>]+)>/);
+  return (m ? m[1] : String(v || '')).trim().toLowerCase();
+}
+
+/** Whether a thread may be shown in the RFQ scope. */
+function inScope_(thread, scope) {
+  if (scope === 'all') return true;
+  if (thread.getLabels().some(function (l) { return l.getName() === RFQ_LABEL; })) return true;
+  const from = supplierEmails_();
+  return thread.getMessages().some(function (m) { return from.indexOf(address_(m.getFrom())) >= 0; });
+}
+
+function mailList_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
+  const folder = FOLDERS[body.folder] ? body.folder : 'inbox';
+  const scope = body.scope === 'all' ? 'all' : 'rfq';
+  const q = [FOLDERS[folder], scope === 'all' ? '' : rfqQuery_(), String(body.query || '').slice(0, 200)].filter(String).join(' ');
+  const start = Math.max(0, Number(body.start) || 0);
+  const threads = GmailApp.search(q, start, 25);
+  const me = senders_();
+  const counts = {};
+  if (start === 0) counts.inbox = GmailApp.search('in:inbox is:unread ' + (scope === 'all' ? '' : rfqQuery_()), 0, 100).length;
+  return {
+    ok: true, folder: folder, scope: scope, start: start, more: threads.length === 25, unread: counts.inbox,
+    threads: threads.map(function (t) {
+      const ms = t.getMessages();
+      const last = ms[ms.length - 1];
+      // Who the thread is with: the sender, or for one's own mail the recipient.
+      const other = me.indexOf(address_(last.getFrom())) >= 0 ? 'To: ' + last.getTo() : last.getFrom();
+      return { id: t.getId(), subject: t.getFirstMessageSubject(), date: t.getLastMessageDate().toISOString(), with: other,
+        count: t.getMessageCount(), unread: t.isUnread(), snippet: String(last.getPlainBody() || '').replace(/\s+/g, ' ').slice(0, 140),
+        attachments: ms.some(function (m) { return m.getAttachments().length > 0; }) };
+    }),
+  };
+}
+
+function mailThread_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
+  const t = GmailApp.getThreadById(String(body.id || ''));
+  if (!t || !inScope_(t, body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  const drafts = {};
+  try { GmailApp.getDrafts().forEach(function (d) { drafts[d.getMessageId()] = true; }); } catch (e) {}
+  const out = t.getMessages().map(function (m) {
+    return { id: m.getId(), from: m.getFrom(), to: m.getTo(), cc: m.getCc(), replyTo: m.getReplyTo(), date: m.getDate().toISOString(), subject: m.getSubject(),
+      text: String(m.getPlainBody() || '').slice(0, 30000), draft: !!drafts[m.getId()], trashed: m.isInTrash(),
+      attachments: m.getAttachments().map(function (a) { return { name: a.getName(), size: a.getSize() }; }) };
+  });
+  if (t.isUnread()) t.markRead();
+  return { ok: true, id: t.getId(), subject: t.getFirstMessageSubject(), spam: t.isInSpam(), trash: t.isInTrash(), messages: out };
+}
+
+/** Moves a thread: delete, restore, junk, not junk, unread. */
+function mailMove_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can change the RFQ mailbox.' };
+  const t = GmailApp.getThreadById(String(body.id || ''));
+  if (!t || !inScope_(t, body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  const what = String(body.move || '');
+  if (what === 'delete') t.moveToTrash();
+  else if (what === 'restore') t.moveToInbox();
+  else if (what === 'junk') t.moveToSpam();
+  else if (what === 'notJunk') t.moveToInbox();
+  else if (what === 'unread') t.markUnread();
+  else return { ok: false, error: 'Unknown change.' };
+  return { ok: true };
+}
+
+/** One attached file of a message in the RFQ mailbox, for download. */
+function mailAttachment_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
+  const m = GmailApp.getMessageById(String(body.message || ''));
+  if (!m || !inScope_(m.getThread(), body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  const a = m.getAttachments()[Number(body.index) || 0];
+  if (!a) return { ok: false, error: 'The file is no longer in this email.' };
+  return { ok: true, name: a.getName(), mime: a.getContentType(), b64: Utilities.base64Encode(a.getBytes()) };
+}
+
+/** Sends a draft in the Outbox (Gmail Drafts), or deletes it. */
+function mailDraft_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can send from the RFQ mailbox.' };
+  const d = GmailApp.getDrafts().filter(function (x) { return x.getMessageId() === String(body.message || ''); })[0];
+  if (!d || !inScope_(d.getMessage().getThread(), body.scope)) return { ok: false, error: 'This draft is no longer in the Outbox.' };
+  if (body.send) d.send();
+  else d.deleteDraft();
+  return { ok: true };
+}
+
+const MAIL_LIMIT = 25 * 1048576; // Gmail's limit for one email
+const RFQ_FOLDER = 'Estimation RFQ';
+
+/** The Drive folder "Estimation RFQ/<project>", made when missing. */
+function rfqFolder_(project) {
+  const roots = DriveApp.getFoldersByName(RFQ_FOLDER);
+  const root = roots.hasNext() ? roots.next() : DriveApp.createFolder(RFQ_FOLDER);
+  const name = String(project || '').replace(/[\/\\]/g, '-').trim().slice(0, 100) || 'Other mail';
+  const subs = root.getFoldersByName(name);
+  return subs.hasNext() ? subs.next() : root.createFolder(name);
+}
+
+/** Saves [blobs] in the project's Drive folder; returns its link, or '' with [problem] set. */
+function saveToDrive_(project, blobs, problem) {
+  if (!blobs.length) return '';
+  try {
+    const folder = rfqFolder_(project);
+    blobs.forEach(function (b) { folder.createFile(b.copyBlob ? b.copyBlob() : b); });
+    return folder.getUrl();
+  } catch (err) {
+    problem.error = /permission|authoriz/i.test(String(err.message || err))
+      ? 'The files were sent but not saved in Drive: the Sheet script is not allowed to use Drive yet (open the script, run doGet and Allow).'
+      : 'The files were sent but not saved in Drive: ' + String(err.message || err);
+    return '';
+  }
+}
+
+/**
+ * Sends an email written on the website's RFQ tab. mode 'new' (an RFQ):
+ * one email to each address in "to", so suppliers never see each other.
+ * 'reply' / 'replyAll': a reply in the thread of message "ref". 'forward':
+ * message "ref" with its files to the "to" addresses. Attached files are
+ * also saved in Drive (Estimation RFQ/<project>). Only the owner of the
+ * price database may send.
+ */
+function sendMail_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can send requests for quote.' };
+  const mode = ['reply', 'replyAll', 'forward'].indexOf(body.mode) >= 0 ? body.mode : 'new';
+  let ref = null;
+  if (mode !== 'new') {
+    ref = GmailApp.getMessageById(String(body.ref || ''));
+    if (!ref || !inScope_(ref.getThread(), body.scope)) return { ok: false, error: 'The email being answered is no longer in the RFQ mailbox.' };
+  }
+  const to = emails_((Array.isArray(body.to) ? body.to : [body.to]).join(',')).filter(function (e, i, a) { return a.indexOf(e) === i; });
+  if (!to.length && mode !== 'reply' && mode !== 'replyAll') return { ok: false, error: 'Add at least one To address.' };
+  if (to.length > 30) return { ok: false, error: 'Send to at most 30 addresses at a time.' };
+  const from = (emails_(body.from)[0] || '').toLowerCase();
+  if (from && senders_().indexOf(from) < 0) {
+    return { ok: false, error: from + ' is not an address the Gmail account that runs the Sheet script (' + Session.getEffectiveUser().getEmail() + ') can send from.' };
+  }
+  const cc = emails_(body.cc);
+  const subject = String(body.subject || '').slice(0, 250) || 'Request for Quote';
+  const intro = String(body.intro || '').slice(0, 20000);
+  const closing = String(body.closing || '').slice(0, 2000);
+  const quoted = String(body.quoted || '').slice(0, 30000);
+  const lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 1000).map(function (l) {
+    return { no: String(l.no || '').slice(0, 20), d: String(l.d || '').slice(0, 3000), q: String(l.q == null ? '' : l.q).slice(0, 20), u: String(l.u || '').slice(0, 20), h: !!l.h };
+  });
+  const names = body.names && typeof body.names === 'object' ? body.names : {};
+  const files = Array.isArray(body.attachments) ? body.attachments.slice(0, 20) : [];
+  let size = 0;
+  const blobs = files.map(function (f) {
+    const bytes = Utilities.base64Decode(String(f.b64 || ''));
+    size += bytes.length;
+    return Utilities.newBlob(bytes, String(f.mime || 'application/octet-stream'), String(f.name || 'file').slice(0, 200));
+  });
+  // A forward carries the files of the email forwarded.
+  const carried = mode === 'forward' ? ref.getAttachments() : [];
+  carried.forEach(function (a) { size += a.getSize(); });
+  if (size > MAIL_LIMIT) return { ok: false, error: 'The attached files are ' + (size / 1048576).toFixed(1) + ' MB; Gmail allows 25 MB per email.' };
+  const table = lines.length ? lines.map(function (l) { return [l.no, l.d, l.q, l.u].join('\t'); }).join('\n') + '\n\n' : '';
+  const text = intro + '\n\n' + table + closing + (quoted ? '\n\n' + quoted : '');
+  const html = mailHtml_(intro, lines, closing) + (quoted ? '<blockquote style="margin:0 0 0 .8ex;border-left:1px solid #ccc;padding-left:1ex;font-family:Calibri,Arial,sans-serif;font-size:11pt;">' +
+    esc_(quoted).replace(/\n/g, '<br>') + '</blockquote>' : '');
+  const book = SpreadsheetApp.getActive();
+  let log = book.getSheetByName(RFQ_LOG);
+  if (!log) {
+    log = book.insertSheet(RFQ_LOG);
+    log.getRange(1, 1, 1, RFQ_LOG_HEADERS.length).setValues([RFQ_LOG_HEADERS]).setFontWeight('bold');
+    log.setFrozenRows(1);
+  }
+  const items = lines.filter(function (l) { return !l.h; }).length;
+  const box = mailbox_(book);
+  const label = rfqLabel_();
+  const problem = {};
+  const drive = saveToDrive_(body.project, blobs, problem);
+  const sent = [], errors = [];
+  // A new RFQ is one email per To address; anything else is one email.
+  const groups = mode === 'new' ? to.map(function (a) { return [a]; }) : [to];
+  groups.forEach(function (group) {
+    const opts = { htmlBody: html };
+    const c = cc.filter(function (e) { return group.map(function (g) { return g.toLowerCase(); }).indexOf(e.toLowerCase()) < 0; });
+    if (c.length) opts.cc = c.join(',');
+    if (from) opts.from = from;
+    const all = blobs.concat(carried);
+    if (all.length) opts.attachments = all;
+    try {
+      let draft;
+      if (mode === 'reply') draft = ref.createDraftReply(text, opts);
+      else if (mode === 'replyAll') draft = ref.createDraftReplyAll(text, opts);
+      else draft = GmailApp.createDraft(group.join(','), subject, text, opts);
+      const message = draft.send();
+      const thread = message.getThread();
+      thread.addLabel(label);
+      const shownTo = group.length ? group.join(', ') : message.getTo();
+      log.appendRow([new Date(), text_(body.project, 200), text_(group.map(function (g) { return names[g] || ''; }).join(', '), 200), shownTo, items, mode === 'new' ? '' : mode]);
+      box.appendRow([new Date(), text_(body.project, 200), from || Session.getEffectiveUser().getEmail(), shownTo, c.join(', '), text_(message.getSubject() || subject, 250),
+        text_(text, 45000), files.concat(carried.map(function (a) { return { name: a.getName() }; })).map(function (f) { return String(f.name || 'file'); }).join(', '),
+        'https://mail.google.com/mail/u/0/#sent/' + thread.getId(), drive]);
+      sent.push(shownTo);
+    } catch (err) {
+      errors.push({ supplier: group.join(', ') || 'reply', error: String(err.message || err) });
+    }
+  });
+  return { ok: true, sent: sent, skipped: [], errors: errors, drive: drive, driveError: problem.error || '' };
+}
+
+/** Saves the files of a thread's emails in Drive (Estimation RFQ/<project>). */
+function mailSaveFiles_(user, body) {
+  if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can save files.' };
+  const t = GmailApp.getThreadById(String(body.id || ''));
+  if (!t || !inScope_(t, body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  const blobs = [];
+  t.getMessages().forEach(function (m) { m.getAttachments().forEach(function (a) { blobs.push(a); }); });
+  if (!blobs.length) return { ok: false, error: 'This email has no attached files.' };
+  const problem = {};
+  const link = saveToDrive_(body.project || t.getFirstMessageSubject().replace(/^(re|fwd?):\s*/i, '').replace(/^RFQ for\s+/i, ''), blobs, problem);
+  if (!link) return { ok: false, error: (problem.error || '').replace('The files were sent but not saved in Drive', 'The files could not be saved in Drive') };
+  return { ok: true, saved: blobs.length, link: link };
 }
 
 function reply_(obj) {

@@ -9,12 +9,12 @@
   const ACCEPT = '.dwg,.dxf,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.bmp,.webp,.gif,.tif,.tiff';
 
   // Resolves with [{name, bytes}] (empty when the picker is closed).
-  function pickFiles() {
+  function pickFiles(accept) {
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
-      input.accept = ACCEPT;
+      input.accept = accept === undefined ? ACCEPT : accept;
       input.style.display = 'none';
       let settled = false;
       const finish = async () => {

@@ -232,12 +232,12 @@
       }
     },
 
-    // Requests for quote: 'getSuppliers', 'saveSuppliers' and 'sendRfq'
+    // Requests for quote: 'getSuppliers', 'saveSuppliers', 'sendRfq' and 'sendMail'
     // (JSON in and out). Throws 'outdated' when the script predates them.
     rfq: async (action, json) => {
       await start();
       if (!auth.currentUser) throw new Error('Log in to request quotes.');
-      if (!/^(getSuppliers|saveSuppliers|sendRfq)$/.test(action)) throw new Error('Unknown request.');
+      if (!/^(getSuppliers|saveSuppliers|sendRfq|sendMail|mailList|mailThread|mailMove|mailAttachment|mailDraft|mailSaveFiles)$/.test(action)) throw new Error('Unknown request.');
       try {
         return JSON.stringify(await call(action, JSON.parse(json)));
       } catch (e) {
