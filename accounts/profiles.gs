@@ -325,7 +325,7 @@ function rfqOwner_(user) {
 
 function rfqSettings_() {
   const props = PropertiesService.getScriptProperties();
-  return { from: props.getProperty('RFQ_FROM') || '', cc: props.getProperty('RFQ_CC') || '', auto: props.getProperty('RFQ_AUTO') === 'yes' };
+  return { from: props.getProperty('RFQ_FROM') || '', cc: props.getProperty('RFQ_CC') || '', replyTo: props.getProperty('RFQ_REPLYTO') || '', auto: props.getProperty('RFQ_AUTO') === 'yes' };
 }
 
 /** The addresses the script may send from: the Gmail account and its "Send mail as" addresses. */
@@ -341,7 +341,7 @@ function getSuppliers_(user) {
   const log = SpreadsheetApp.getActive().getSheetByName(RFQ_LOG);
   const out = { ok: true, allowed: true, suppliers: rows.map(function (v) { return { name: String(v[0]), contact: String(v[1]), email: String(v[2]), cc: String(v[3]), supplies: String(v[4]) }; }), sent: log ? Math.max(0, log.getLastRow() - 1) : 0 };
   const st = rfqSettings_();
-  out.from = st.from; out.cc = st.cc; out.auto = st.auto;
+  out.from = st.from; out.cc = st.cc; out.replyTo = st.replyTo; out.auto = st.auto;
   try {
     out.senders = senders_();
     out.mailReady = true;
@@ -386,6 +386,7 @@ function saveSuppliers_(user, body) {
       props.setProperty('RFQ_FROM', from);
     }
     if (body.cc != null) props.setProperty('RFQ_CC', emails_(body.cc).join(', '));
+    if (body.replyTo != null) props.setProperty('RFQ_REPLYTO', emails_(body.replyTo).join(', '));
     if (body.auto != null) props.setProperty('RFQ_AUTO', body.auto ? 'yes' : 'no');
     return getSuppliers_(user);
   } finally {
@@ -681,6 +682,8 @@ function sendMail_(user, body) {
     return { ok: false, error: from + ' is not an address the Gmail account that runs the Sheet script (' + Session.getEffectiveUser().getEmail() + ') can send from.' };
   }
   const cc = emails_(body.cc);
+  // Replies go here (e.g. the company mailbox when it cannot be a Gmail From address).
+  const replyTo = emails_(body.replyTo)[0] || '';
   const subject = String(body.subject || '').slice(0, 250) || 'Request for Quote';
   const intro = String(body.intro || '').slice(0, 20000);
   const closing = String(body.closing || '').slice(0, 2000);
@@ -724,6 +727,7 @@ function sendMail_(user, body) {
     const c = cc.filter(function (e) { return group.map(function (g) { return g.toLowerCase(); }).indexOf(e.toLowerCase()) < 0; });
     if (c.length) opts.cc = c.join(',');
     if (from) opts.from = from;
+    if (replyTo) opts.replyTo = replyTo;
     const all = blobs.concat(carried);
     if (all.length) opts.attachments = all;
     try {
