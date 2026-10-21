@@ -6,6 +6,17 @@
 <link rel="icon" type="image/png" href="favicon.png">
 <title>Estimation: BOQ to Excel</title>
 <meta name="description" content="Turn drawings, BOQs and specifications into a clean bill of quantities in Excel, right in your browser.">
+<!-- Start the two big downloads (the app and its renderer) at once, not after the other scripts. -->
+<link rel="preload" href="main.dart.js" as="script">
+<script>
+  (function () {
+    var l = document.createElement('link');
+    l.rel = 'preload'; l.as = 'fetch'; l.type = 'application/wasm'; l.crossOrigin = 'anonymous';
+    // Flutter uses the smaller Chromium renderer on Chrome and Edge.
+    l.href = window.Intl && Intl.v8BreakIterator && Intl.Segmenter && typeof ImageDecoder !== 'undefined' ? 'canvaskit/chromium/canvaskit.wasm' : 'canvaskit/canvaskit.wasm';
+    document.head.appendChild(l);
+  })();
+</script>
 <style>
   :root { --bg: #f7f9fc; --fg: #1a1c1e; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111418; --fg: #e2e2e6; color-scheme: dark } }

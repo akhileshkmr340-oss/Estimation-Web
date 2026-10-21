@@ -287,6 +287,12 @@
       return !!w;
     },
     setRfqData: (fn) => { window.estimationRfqData = fn; },
+    // Activity in any of the site's windows (main and RFQ) keeps all of them
+    // signed in. BroadcastChannel only passes messages; nothing is stored.
+    activityPost: () => { try { (window.estimationActivity ||= new BroadcastChannel('estimation-activity')).postMessage(Date.now()); } catch (e) {} },
+    activityListen: (fn) => {
+      try { (window.estimationActivity ||= new BroadcastChannel('estimation-activity')).onmessage = () => fn(); } catch (e) {}
+    },
     rfqFromOpener: () => {
       try { return window.opener && window.opener.estimationRfqData ? String(window.opener.estimationRfqData()) : null; } catch (e) { return null; }
     },

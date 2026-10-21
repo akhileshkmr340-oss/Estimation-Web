@@ -71,6 +71,13 @@ function doGet() {
 /** The caller's Firebase account, checked with Google: {uid, email}. */
 function verify_(idToken) {
   if (!idToken) throw new Error('Not signed in.');
+  // A sign-in Google has confirmed is remembered for 10 minutes (in the
+  // script's own cache, by a hash of the token), so each later call skips
+  // the round trip to Google.
+  const cache = CacheService.getScriptCache();
+  const key = 'tok:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken));
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
   const res = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_API_KEY, {
     method: 'post',
     contentType: 'application/json',
@@ -80,7 +87,9 @@ function verify_(idToken) {
   const data = JSON.parse(res.getContentText() || '{}');
   const u = data.users && data.users[0];
   if (res.getResponseCode() !== 200 || !u || !u.localId) throw new Error('Your sign-in has expired. Log in again.');
-  return { uid: u.localId, email: u.email || '' };
+  const user = { uid: u.localId, email: u.email || '' };
+  cache.put(key, JSON.stringify(user), 600);
+  return user;
 }
 
 function sheet_() {
@@ -329,8 +338,10 @@ function rfqSettings_() {
 }
 
 /** The addresses the script may send from: the Gmail account and its "Send mail as" addresses. */
+let senders__ = null; // per call: Gmail aliases are slow to read
 function senders_() {
-  return [Session.getEffectiveUser().getEmail()].concat(GmailApp.getAliases()).map(function (a) { return String(a).toLowerCase(); });
+  if (senders__) return senders__;
+  return senders__ = [Session.getEffectiveUser().getEmail()].concat(GmailApp.getAliases()).map(function (a) { return String(a).toLowerCase(); });
 }
 
 function getSuppliers_(user) {
@@ -518,7 +529,9 @@ function rfqLabel_() {
 }
 
 /** Suppliers' own addresses (Email column only), never one's own or the RFQ CC. */
+let suppliers__ = null; // per call
 function supplierEmails_() {
+  if (suppliers__) return suppliers__;
   const s = SpreadsheetApp.getActive().getSheetByName(SUPPLIERS);
   const rows = !s || s.getLastRow() < 2 ? [] : s.getRange(2, 3, s.getLastRow() - 1, 1).getValues();
   const st = rfqSettings_();
@@ -527,7 +540,7 @@ function supplierEmails_() {
   mine = mine.map(function (e) { return e.toLowerCase(); });
   const out = [];
   rows.forEach(function (r) { emails_(r[0]).forEach(function (e) { e = e.toLowerCase(); if (mine.indexOf(e) < 0 && out.indexOf(e) < 0) out.push(e); }); });
-  return out;
+  return suppliers__ = out;
 }
 
 // The RFQ mailbox shows only RFQ mail: threads sent from this mailbox (label
@@ -560,10 +573,15 @@ function labelReplies_() {
   const cache = CacheService.getScriptCache();
   if (cache.get('rfqSweep')) return;
   cache.put('rfqSweep', '1', 15);
-  const label = rfqLabel_();
-  GmailApp.search('-label:' + RFQ_LABEL + ' -in:trash -in:spam newer_than:60d', 0, 60).forEach(function (t) {
-    if (t.getLabels().some(function (l) { return l.getName() === RFQ_LABEL; })) t.addLabel(label);
-  });
+  // Threads with a labelled email and an unlabelled one: two searches, then
+  // label only those.
+  const labelled = {};
+  GmailApp.search('label:' + RFQ_LABEL + ' newer_than:60d', 0, 100).forEach(function (t) { labelled[t.getId()] = true; });
+  const todo = GmailApp.search('-label:' + RFQ_LABEL + ' -in:trash -in:spam newer_than:60d', 0, 100).filter(function (t) { return labelled[t.getId()]; });
+  if (todo.length) {
+    const label = rfqLabel_();
+    todo.forEach(function (t) { t.addLabel(label); });
+  }
 }
 
 function mailList_(user, body) {
@@ -575,6 +593,10 @@ function mailList_(user, body) {
   const start = Math.max(0, Number(body.start) || 0);
   const threads = GmailApp.search(q, start, 25);
   const me = senders_();
+  // One batch read of the messages, and one search for the paper clips.
+  const all = threads.length ? GmailApp.getMessagesForThreads(threads) : [];
+  const clips = {};
+  if (threads.length) GmailApp.search(q + ' has:attachment', 0, Math.min(500, start + 50)).forEach(function (t) { clips[t.getId()] = true; });
   // Counts beside the folders, as in Outlook: unread in Inbox and Junk, all in Drafts.
   const counts = {};
   if (start === 0) {
@@ -586,8 +608,8 @@ function mailList_(user, body) {
   }
   return {
     ok: true, folder: folder, scope: scope, start: start, more: threads.length === 25, unread: counts.inbox, counts: start === 0 ? counts : null,
-    threads: threads.map(function (t) {
-      const ms = t.getMessages();
+    threads: threads.map(function (t, i) {
+      const ms = all[i];
       const last = ms[ms.length - 1];
       // Who the thread is with: the sender, or for one's own mail the recipient.
       const other = me.indexOf(address_(last.getFrom())) >= 0 ? 'To: ' + last.getTo() : last.getFrom();
@@ -596,7 +618,7 @@ function mailList_(user, body) {
       return { id: t.getId(), flagged: t.hasStarredMessages(), replied: answers.some(function (m) { return /^re:/i.test(m.getSubject()); }),
         forwarded: ms.some(function (m) { return me.indexOf(address_(m.getFrom())) >= 0 && /^fwd?:/i.test(m.getSubject()); }), subject: t.getFirstMessageSubject(), date: t.getLastMessageDate().toISOString(), with: other,
         count: t.getMessageCount(), unread: t.isUnread(), snippet: String(last.getPlainBody() || '').replace(/\s+/g, ' ').slice(0, 140),
-        attachments: ms.some(function (m) { return m.getAttachments().length > 0; }) };
+        attachments: !!clips[t.getId()] };
     }),
   };
 }
@@ -605,11 +627,9 @@ function mailThread_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
   const t = GmailApp.getThreadById(String(body.id || ''));
   if (!t || !inScope_(t)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
-  const drafts = {};
-  try { GmailApp.getDrafts().forEach(function (d) { drafts[d.getMessageId()] = true; }); } catch (e) {}
   const out = t.getMessages().map(function (m) {
     return { id: m.getId(), from: m.getFrom(), to: m.getTo(), cc: m.getCc(), replyTo: m.getReplyTo(), date: m.getDate().toISOString(), subject: m.getSubject(),
-      text: String(m.getPlainBody() || '').slice(0, 30000), draft: !!drafts[m.getId()], trashed: m.isInTrash(),
+      text: String(m.getPlainBody() || '').slice(0, 30000), draft: m.isDraft(), trashed: m.isInTrash(),
       attachments: m.getAttachments().map(function (a) { return { name: a.getName(), size: a.getSize() }; }) };
   });
   if (t.isUnread()) t.markRead();
