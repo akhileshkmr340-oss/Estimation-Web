@@ -501,9 +501,7 @@ function mailbox_(book) {
 }
 
 // ---- The RFQ mailbox on the website: the owner's Gmail, folder by folder ----
-// Scope 'rfq' (the default) shows only RFQ mail: threads the website sent
-// (Gmail label "RFQ") and mail from addresses in the Suppliers sheet.
-// Scope 'all' shows the whole Gmail account.
+// Only RFQ mail is ever shown (see rfqQuery_); the rest of Gmail never is.
 const RFQ_LABEL = 'RFQ';
 // Outlook's folders in Gmail: Drafts, Outbox = scheduled mail, Archive = the
 // "RFQ-Archive" label (set by Archive on the website) outside the Inbox.
@@ -519,17 +517,25 @@ function rfqLabel_() {
   return GmailApp.getUserLabelByName(RFQ_LABEL) || GmailApp.createLabel(RFQ_LABEL);
 }
 
+/** Suppliers' own addresses (Email column only), never one's own or the RFQ CC. */
 function supplierEmails_() {
   const s = SpreadsheetApp.getActive().getSheetByName(SUPPLIERS);
-  const rows = !s || s.getLastRow() < 2 ? [] : s.getRange(2, 3, s.getLastRow() - 1, 2).getValues();
+  const rows = !s || s.getLastRow() < 2 ? [] : s.getRange(2, 3, s.getLastRow() - 1, 1).getValues();
+  const st = rfqSettings_();
+  let mine = emails_(st.cc + ',' + st.replyTo + ',' + st.from);
+  try { mine = mine.concat(senders_()); } catch (e) {}
+  mine = mine.map(function (e) { return e.toLowerCase(); });
   const out = [];
-  rows.forEach(function (r) { emails_(r[0] + ',' + r[1]).forEach(function (e) { e = e.toLowerCase(); if (out.indexOf(e) < 0) out.push(e); }); });
+  rows.forEach(function (r) { emails_(r[0]).forEach(function (e) { e = e.toLowerCase(); if (mine.indexOf(e) < 0 && out.indexOf(e) < 0) out.push(e); }); });
   return out;
 }
 
+// The RFQ mailbox shows only RFQ mail: threads sent from this mailbox (label
+// "RFQ", replies land in the same thread) and a supplier's own RFQ email.
+// The rest of the Gmail account is never shown.
 function rfqQuery_() {
   const from = supplierEmails_().slice(0, 60);
-  return '(label:' + RFQ_LABEL + (from.length ? ' OR from:(' + from.join(' OR ') + ')' : '') + ')';
+  return '(label:' + RFQ_LABEL + (from.length ? ' OR (from:(' + from.join(' OR ') + ') subject:RFQ)' : '') + ')';
 }
 
 function address_(v) {
@@ -537,26 +543,25 @@ function address_(v) {
   return (m ? m[1] : String(v || '')).trim().toLowerCase();
 }
 
-/** Whether a thread may be shown in the RFQ scope. */
-function inScope_(thread, scope) {
-  if (scope === 'all') return true;
+/** Whether a thread is RFQ mail and so may be shown. */
+function inScope_(thread) {
   if (thread.getLabels().some(function (l) { return l.getName() === RFQ_LABEL; })) return true;
   const from = supplierEmails_();
-  return thread.getMessages().some(function (m) { return from.indexOf(address_(m.getFrom())) >= 0; });
+  return /\bRFQ\b/i.test(thread.getFirstMessageSubject()) && thread.getMessages().some(function (m) { return from.indexOf(address_(m.getFrom())) >= 0; });
 }
 
 function mailList_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
   const folder = FOLDERS[body.folder] ? body.folder : 'inbox';
-  const scope = body.scope === 'all' ? 'all' : 'rfq';
-  const q = [FOLDERS[folder], scope === 'all' ? '' : rfqQuery_(), String(body.query || '').slice(0, 200)].filter(String).join(' ');
+  const scope = 'rfq';
+  const q = [FOLDERS[folder], rfqQuery_(), String(body.query || '').slice(0, 200)].filter(String).join(' ');
   const start = Math.max(0, Number(body.start) || 0);
   const threads = GmailApp.search(q, start, 25);
   const me = senders_();
   // Counts beside the folders, as in Outlook: unread in Inbox and Junk, all in Drafts.
   const counts = {};
   if (start === 0) {
-    const sq = scope === 'all' ? '' : ' ' + rfqQuery_();
+    const sq = ' ' + rfqQuery_();
     counts.inbox = GmailApp.search('in:inbox is:unread' + sq, 0, 100).length;
     counts.drafts = GmailApp.search('in:drafts' + sq, 0, 100).length;
     counts.junk = GmailApp.search('in:spam is:unread' + sq, 0, 100).length;
@@ -582,7 +587,7 @@ function mailList_(user, body) {
 function mailThread_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
   const t = GmailApp.getThreadById(String(body.id || ''));
-  if (!t || !inScope_(t, body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  if (!t || !inScope_(t)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
   const drafts = {};
   try { GmailApp.getDrafts().forEach(function (d) { drafts[d.getMessageId()] = true; }); } catch (e) {}
   const out = t.getMessages().map(function (m) {
@@ -598,7 +603,7 @@ function mailThread_(user, body) {
 function mailMove_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can change the RFQ mailbox.' };
   const t = GmailApp.getThreadById(String(body.id || ''));
-  if (!t || !inScope_(t, body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  if (!t || !inScope_(t)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
   const what = String(body.move || '');
   if (what === 'delete') t.moveToTrash();
   else if (what === 'restore') t.moveToInbox();
@@ -618,7 +623,7 @@ function mailMove_(user, body) {
 function mailAttachment_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
   const m = GmailApp.getMessageById(String(body.message || ''));
-  if (!m || !inScope_(m.getThread(), body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  if (!m || !inScope_(m.getThread())) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
   const a = m.getAttachments()[Number(body.index) || 0];
   if (!a) return { ok: false, error: 'The file is no longer in this email.' };
   return { ok: true, name: a.getName(), mime: a.getContentType(), b64: Utilities.base64Encode(a.getBytes()) };
@@ -628,7 +633,7 @@ function mailAttachment_(user, body) {
 function mailDraft_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can send from the RFQ mailbox.' };
   const d = GmailApp.getDrafts().filter(function (x) { return x.getMessageId() === String(body.message || ''); })[0];
-  if (!d || !inScope_(d.getMessage().getThread(), body.scope)) return { ok: false, error: 'This draft is no longer in the Outbox.' };
+  if (!d || !inScope_(d.getMessage().getThread())) return { ok: false, error: 'This draft is no longer in the Outbox.' };
   if (body.send) d.send();
   else d.deleteDraft();
   return { ok: true };
@@ -675,7 +680,7 @@ function sendMail_(user, body) {
   let ref = null;
   if (mode !== 'new') {
     ref = GmailApp.getMessageById(String(body.ref || ''));
-    if (!ref || !inScope_(ref.getThread(), body.scope)) return { ok: false, error: 'The email being answered is no longer in the RFQ mailbox.' };
+    if (!ref || !inScope_(ref.getThread())) return { ok: false, error: 'The email being answered is no longer in the RFQ mailbox.' };
   }
   const to = emails_((Array.isArray(body.to) ? body.to : [body.to]).join(',')).filter(function (e, i, a) { return a.indexOf(e) === i; });
   if (!to.length && mode !== 'reply' && mode !== 'replyAll') return { ok: false, error: 'Add at least one To address.' };
@@ -758,7 +763,7 @@ function sendMail_(user, body) {
 function mailSaveFiles_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can save files.' };
   const t = GmailApp.getThreadById(String(body.id || ''));
-  if (!t || !inScope_(t, body.scope)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
+  if (!t || !inScope_(t)) return { ok: false, error: 'This email is not in the RFQ mailbox.' };
   const blobs = [];
   t.getMessages().forEach(function (m) { m.getAttachments().forEach(function (a) { blobs.push(a); }); });
   if (!blobs.length) return { ok: false, error: 'This email has no attached files.' };
