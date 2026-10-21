@@ -550,8 +550,25 @@ function inScope_(thread) {
   return /\bRFQ\b/i.test(thread.getFirstMessageSubject()) && thread.getMessages().some(function (m) { return from.indexOf(address_(m.getFrom())) >= 0; });
 }
 
+/**
+ * Gmail search matches single messages, and only the emails sent from the
+ * website carry the "RFQ" label. A reply that arrives in an RFQ thread
+ * (from a supplier, or from one's own other address) is labelled here, so
+ * it shows in the Inbox. Runs at most every 15 seconds.
+ */
+function labelReplies_() {
+  const cache = CacheService.getScriptCache();
+  if (cache.get('rfqSweep')) return;
+  cache.put('rfqSweep', '1', 15);
+  const label = rfqLabel_();
+  GmailApp.search('-label:' + RFQ_LABEL + ' -in:trash -in:spam newer_than:60d', 0, 60).forEach(function (t) {
+    if (t.getLabels().some(function (l) { return l.getName() === RFQ_LABEL; })) t.addLabel(label);
+  });
+}
+
 function mailList_(user, body) {
   if (!rfqOwner_(user)) return { ok: false, error: 'Only the account that owns the price database can open the RFQ mailbox.' };
+  if (!body.start) { try { labelReplies_(); } catch (e) {} }
   const folder = FOLDERS[body.folder] ? body.folder : 'inbox';
   const scope = 'rfq';
   const q = [FOLDERS[folder], rfqQuery_(), String(body.query || '').slice(0, 200)].filter(String).join(' ');
@@ -690,6 +707,7 @@ function sendMail_(user, body) {
     return { ok: false, error: from + ' is not an address the Gmail account that runs the Sheet script (' + Session.getEffectiveUser().getEmail() + ') can send from.' };
   }
   const cc = emails_(body.cc);
+  const bcc = emails_(body.bcc);
   // Replies go here (e.g. the company mailbox when it cannot be a Gmail From address).
   const replyTo = emails_(body.replyTo)[0] || '';
   const subject = String(body.subject || '').slice(0, 250) || 'Request for Quote';
@@ -734,6 +752,7 @@ function sendMail_(user, body) {
     const opts = { htmlBody: html };
     const c = cc.filter(function (e) { return group.map(function (g) { return g.toLowerCase(); }).indexOf(e.toLowerCase()) < 0; });
     if (c.length) opts.cc = c.join(',');
+    if (bcc.length) opts.bcc = bcc.join(',');
     if (from) opts.from = from;
     if (replyTo) opts.replyTo = replyTo;
     const all = blobs.concat(carried);
