@@ -20,6 +20,16 @@ jobs:
             echo "skip=1" >> "$GITHUB_OUTPUT"
             echo "::warning::Add the FIREBASE_SERVICE_ACCOUNT secret to publish to Firebase Hosting."
           fi
+      - name: Start-up download is within its budget
+        # The app (main.dart.v-*.js) and renderer must stay small, or the
+        # website gets slow to open; this stops the deploy if they grow.
+        run: |
+          app=$(gzip -9c main.dart.v-*.js | wc -c)
+          ck=$(gzip -9c ck-*/chromium/canvaskit.wasm | wc -c)
+          total=$((app + ck))
+          echo "::notice::Start-up download (gzip): app $((app / 1024)) KB, renderer $((ck / 1024)) KB, total $((total / 1024)) KB (budget 3000 KB)"
+          if [ "$(ls main.dart.v-*.js | wc -l)" != 1 ] || ! grep -q "$(ls main.dart.v-*.js)" index.html flutter_bootstrap.js; then echo "::error::index.html and flutter_bootstrap.js must name the one main.dart.v-*.js file."; exit 1; fi
+          if [ "$total" -gt 3072000 ]; then echo "::error::The start-up download is over its budget; the website would load slowly."; exit 1; fi
       - uses: FirebaseExtended/action-hosting-deploy@v0
         if: steps.key.outputs.skip != '1'
         with:

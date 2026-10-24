@@ -14,7 +14,7 @@ jobs:
       - name: Pages answer and match this commit
         run: |
           for site in https://estimation-6fa32.web.app; do
-            for f in "" main.dart.js auth.js accounts-config.js; do
+            for f in "" $(ls main.dart.v-*.js auth.v-*.js) accounts-config.js; do
               code=$(curl -s -o /tmp/f -w '%{http_code}' "$site/$f")
               same=""
               if [ -n "$f" ]; then cmp -s /tmp/f "$f" && same=" (same as repo)" || same=" (DIFFERENT from repo)"; fi

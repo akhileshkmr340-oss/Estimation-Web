@@ -7,13 +7,13 @@
 <title>Estimation: BOQ to Excel</title>
 <meta name="description" content="Turn drawings, BOQs and specifications into a clean bill of quantities in Excel, right in your browser.">
 <!-- Start the two big downloads (the app and its renderer) at once, not after the other scripts. -->
-<link rel="preload" href="main.dart.js" as="script">
+<link rel="preload" href="main.dart.v-46d1a26262.js" as="script">
 <script>
   (function () {
     var l = document.createElement('link');
     l.rel = 'preload'; l.as = 'fetch'; l.type = 'application/wasm'; l.crossOrigin = 'anonymous';
     // Flutter uses the smaller Chromium renderer on Chrome and Edge.
-    l.href = window.Intl && Intl.v8BreakIterator && Intl.Segmenter && typeof ImageDecoder !== 'undefined' ? 'canvaskit/chromium/canvaskit.wasm' : 'canvaskit/canvaskit.wasm';
+    l.href = window.Intl && Intl.v8BreakIterator && Intl.Segmenter && typeof ImageDecoder !== 'undefined' ? 'ck-deb287481e/chromium/canvaskit.wasm' : 'ck-deb287481e/canvaskit.wasm';
     document.head.appendChild(l);
   })();
 </script>
@@ -29,9 +29,9 @@
 <body>
 <div id="loading">Loading Estimation…</div>
 <script src="ocr/tesseract.min.js" defer></script>
-<script src="estimation.js"></script>
+<script src="estimation.v-8a49267200.js"></script>
 <script src="accounts-config.js"></script>
-<script src="auth.js"></script>
+<script src="auth.v-edbbae7753.js"></script>
 <script>
   window.addEventListener('flutter-first-frame', function () { var l = document.getElementById('loading'); if (l) l.remove(); });
 </script>
