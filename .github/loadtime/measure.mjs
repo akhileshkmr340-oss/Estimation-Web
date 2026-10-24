@@ -1,9 +1,11 @@
 // Loads the live website in a fresh browser (empty cache, like a first
 // visit) and again with the cache (a return visit), and reports how long
 // the login page takes to appear and what was downloaded.
+// The connection is slowed to 10 Mbit/s with 60 ms delay, a typical office
+// broadband line, so the times are close to what a user sees.
 // node measure.mjs https://estimation-6fa32.web.app [budget_first_s] [budget_repeat_s]
 import { chromium } from 'playwright';
-const [url, firstBudget = '12', repeatBudget = '6'] = process.argv.slice(2);
+const [url, firstBudget = '8', repeatBudget = '3'] = process.argv.slice(2);
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1366, height: 800 } });
 async function visit(label) {
@@ -11,6 +13,7 @@ async function visit(label) {
   const reqs = [];
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Network.enable');
+  await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 60, downloadThroughput: 1250000, uploadThroughput: 625000 });
   const sizes = new Map();
   cdp.on('Network.loadingFinished', (e) => sizes.set(e.requestId, e.encodedDataLength));
   const urls = new Map();
