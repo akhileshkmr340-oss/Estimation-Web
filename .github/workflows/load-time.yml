@@ -1,0 +1,17 @@
+# Measures how fast the live website opens (first visit and return visit)
+# after every deploy, and fails if it is slower than the budget.
+name: Load time
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy to Firebase Hosting]
+    types: [completed]
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: node .github/loadtime/measure.mjs https://estimation-6fa32.web.app 12 6
