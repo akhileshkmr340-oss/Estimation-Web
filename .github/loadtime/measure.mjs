@@ -19,7 +19,10 @@ async function visit(label) {
   await page.goto(url, { waitUntil: 'commit' });
   await page.waitForFunction(() => !document.getElementById('loading'), null, { timeout: 120000, polling: 100 });
   const firstFrame = (Date.now() - t0) / 1000;
-  await page.getByRole('button', { name: /Log in|Sign up/ }).first().waitFor({ timeout: 120000 }).catch(() => {});
+  // Flutter builds its accessibility tree only when asked; then the login
+  // buttons can be found.
+  await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
+  await page.getByRole('button', { name: /Log in|Sign up/ }).first().waitFor({ timeout: 60000 }).catch(() => {});
   const ready = (Date.now() - t0) / 1000;
   await page.waitForTimeout(1500);
   let total = 0;
@@ -30,6 +33,7 @@ async function visit(label) {
     rows.push([s, u.status, u.cached ? 'cache' : 'net', u.url.replace(url, '')]);
   }
   rows.sort((a, b) => b[0] - a[0]);
+  console.log(`::notice::${label}: first frame ${firstFrame.toFixed(1)} s, login page ready ${ready.toFixed(1)} s, ${(total / 1048576).toFixed(2)} MB, ${rows.length} requests. Largest: ${rows.slice(0, 6).map((r) => `${r[3].split('?')[0].slice(-40)} ${(r[0] / 1024).toFixed(0)} KB ${r[2]}`).join('; ')}`);
   console.log(`\n== ${label}: first frame ${firstFrame.toFixed(1)} s, login page ready ${ready.toFixed(1)} s, downloaded ${(total / 1048576).toFixed(2)} MB in ${rows.length} requests`);
   for (const r of rows.slice(0, 15)) console.log(`${(r[0] / 1024).toFixed(0).padStart(7)} KB  ${r[1]} ${r[2].padEnd(5)} ${r[3].slice(0, 100)}`);
   await page.close();
