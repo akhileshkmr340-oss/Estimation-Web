@@ -58,6 +58,8 @@ function doPost(e) {
     if (body.action === 'mailAttachment') return reply_(mailAttachment_(user, body));
     if (body.action === 'mailDraft') return reply_(mailDraft_(user, body));
     if (body.action === 'mailSaveFiles') return reply_(mailSaveFiles_(user, body));
+    if (body.action === 'searchPrices') return reply_(searchPrices_(user, body));
+    if (body.action === 'priceSearchStatus') return reply_(priceSearchStatus_(user));
     return reply_({ ok: false, error: 'Unknown request.' });
   } catch (err) {
     return reply_({ ok: false, error: String(err.message || err) });
@@ -810,6 +812,226 @@ function mailSaveFiles_(user, body) {
   const link = saveToDrive_(body.project || t.getFirstMessageSubject().replace(/^(re|fwd?):\s*/i, '').replace(/^RFQ for\s+/i, ''), blobs, problem);
   if (!link) return { ok: false, error: (problem.error || '').replace('The files were sent but not saved in Drive', 'The files could not be saved in Drive') };
   return { ok: true, saved: blobs.length, link: link };
+}
+
+// ---- Online price search -------------------------------------------------
+// Searches current Indian prices for BOQ items with no rate. The keys are
+// Script properties the owner adds in Apps Script (Project Settings > Script
+// properties); they never leave this script:
+//   GEMINI_API_KEY  Google AI Studio key: Gemini with Google Search (free tier)
+//   SERPER_API_KEY  serper.dev key: Google Shopping and web results
+//   OPENAI_API_KEY  OpenAI key: ChatGPT with web search
+// Only prices seen on a web page are returned, each with its link.
+
+function searchKeys_() {
+  const p = PropertiesService.getScriptProperties();
+  return { gemini: p.getProperty('GEMINI_API_KEY') || '', serper: p.getProperty('SERPER_API_KEY') || '', openai: p.getProperty('OPENAI_API_KEY') || '' };
+}
+
+function priceSearchStatus_(user) {
+  const k = searchKeys_();
+  return { ok: true, allowed: ratesAllowed_(user), gemini: !!k.gemini, google: !!k.serper, chatgpt: !!k.openai };
+}
+
+function clip_(v, n) {
+  return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+}
+
+function rupees_(text) {
+  const m = String(text || '').match(/(?:₹|Rs\.?|INR)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i);
+  if (!m) return null;
+  const v = Number(m[1].replace(/,/g, ''));
+  return isFinite(v) && v > 0 ? v : null;
+}
+
+function host_(url) {
+  const m = String(url || '').match(/^https?:\/\/(?:www\.)?([^\/:?#]+)/i);
+  return m ? m[1].toLowerCase() : '';
+}
+
+function itemQuery_(it) {
+  return [it.brand, it.description, it.rating, 'price'].filter(String).join(' ');
+}
+
+function searchPrices_(user, body) {
+  if (!ratesAllowed_(user)) return { ok: false, error: 'Only the owner of the price database can search prices online.' };
+  const keys = searchKeys_();
+  if (!keys.gemini && !keys.serper && !keys.openai) return { ok: false, error: 'No search key is set up yet. Add GEMINI_API_KEY in the Apps Script project settings (Script properties).' };
+  const items = (Array.isArray(body.items) ? body.items : []).slice(0, 10).map(function (it, i) {
+    return { id: String(it.id || i), description: clip_(it.description, 300), rating: clip_(it.rating, 120), uom: clip_(it.uom, 20), brand: clip_(it.brand, 60), context: clip_(it.context, 160) };
+  }).filter(function (it) { return it.description; });
+  if (!items.length) return { ok: false, error: 'Give the items to search.' };
+  if (body.estimate) return estimatePrices_(items, keys);
+  const out = {};
+  items.forEach(function (it) { out[it.id] = { id: it.id, candidates: [], errors: [] }; });
+  const reqs = [];
+  const handlers = [];
+  if (keys.gemini) {
+    reqs.push(geminiRequest_(items, keys.gemini));
+    handlers.push(function (res) { geminiParse_(res, items, out); });
+  }
+  if (keys.serper) {
+    items.forEach(function (it) {
+      ['shopping', 'search'].forEach(function (path) {
+        reqs.push({ url: 'https://google.serper.dev/' + path, method: 'post', contentType: 'application/json', headers: { 'X-API-KEY': keys.serper }, payload: JSON.stringify({ q: itemQuery_(it), gl: 'in', hl: 'en', num: 10 }), muteHttpExceptions: true });
+        handlers.push(function (res) { serperParse_(res, it, out[it.id]); });
+      });
+    });
+  }
+  if (keys.openai) {
+    items.forEach(function (it) {
+      reqs.push({ url: 'https://api.openai.com/v1/responses', method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + keys.openai }, payload: JSON.stringify({ model: 'gpt-5-mini', tools: [{ type: 'web_search' }], input: offerPrompt_([it]) }), muteHttpExceptions: true });
+      handlers.push(function (res) { openaiParse_(res, it, out[it.id]); });
+    });
+  }
+  const answers = UrlFetchApp.fetchAll(reqs);
+  answers.forEach(function (res, i) {
+    try {
+      handlers[i](res);
+    } catch (e) {
+      items.forEach(function (it) { out[it.id].errors.push(String(e.message || e)); });
+    }
+  });
+  const results = items.map(function (it) {
+    const r = out[it.id];
+    const seen = {};
+    r.candidates = r.candidates.filter(function (c) {
+      const k = c.url + '|' + c.price;
+      if (seen[k] || !(c.price > 0) || !/^https?:\/\//.test(c.url)) return false;
+      seen[k] = true;
+      return true;
+    }).sort(function (a, b) { return a.price - b.price; }).slice(0, 20);
+    return r;
+  });
+  return { ok: true, results: results, checked: Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd') };
+}
+
+// For items no page gives a price for: Gemini's best estimate of the Indian
+// market rate (supply before GST, and installation), with its basis. The
+// website marks every such rate "Estimate, confirm".
+function estimatePrices_(items, keys) {
+  if (!keys.gemini) return { ok: false, error: 'Estimates need GEMINI_API_KEY in the Apps Script project settings (Script properties).' };
+  const prompt = 'You are an electrical estimator in India. For each BOQ item below, give your best estimate of the current Indian market ' +
+    'supply rate in INR before GST for one unit, and the installation (labour) rate in INR for one unit. Use web search for similar items ' +
+    'and brand price lists. If the item is a custom-built panel or assembly, estimate from its listed components. Give a one-line basis.\n' +
+    items.map(function (it, i) {
+      return (i + 1) + '. ' + it.description + (it.rating ? ' | rating: ' + it.rating : '') + (it.uom ? ' | unit: ' + it.uom : '') + (it.context ? ' | section: ' + it.context : '');
+    }).join('\n') +
+    '\nAnswer with JSON only: {"items":[{"n":1,"supply":number,"service":number,"basis":""}]}';
+  const res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(keys.gemini), {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }] }),
+  });
+  if (res.getResponseCode() !== 200) return { ok: false, error: 'Gemini estimate failed (' + res.getResponseCode() + ')' };
+  const cand = (JSON.parse(res.getContentText()).candidates || [])[0] || {};
+  const j = json_(((cand.content || {}).parts || []).map(function (p) { return p.text || ''; }).join(''));
+  if (!j || !Array.isArray(j.items)) return { ok: false, error: 'Gemini gave no estimates' };
+  const results = [];
+  j.items.forEach(function (row) {
+    const it = items[Number(row.n) - 1];
+    const supply = Number(row.supply), service = Number(row.service);
+    if (!it || !(supply > 0 || service > 0)) return;
+    results.push({ id: it.id, supply: supply > 0 ? supply : null, service: service > 0 ? service : null, basis: clip_(row.basis, 200) });
+  });
+  return { ok: true, estimates: results, checked: Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd') };
+}
+
+function offerPrompt_(items) {
+  return 'Find current prices in India (INR) for these electrical items, from brand price lists, distributors or marketplaces ' +
+    '(Moglix, Industrybuying, IndiaMART, Amazon.in, Flipkart, brand sites). Only give prices you saw on a web page, with that page\'s full link, ' +
+    'for the same item (same type, rating, size and unit). Never estimate. Say whether the price includes GST when the page says so, ' +
+    'and the unit the price is for (each, metre, set, kg).\n' +
+    items.map(function (it, i) {
+      return (i + 1) + '. ' + it.description + (it.rating ? ' | rating: ' + it.rating : '') + (it.uom ? ' | unit: ' + it.uom : '') + (it.brand ? ' | brand: ' + it.brand : '') + (it.context ? ' | section: ' + it.context : '');
+    }).join('\n') +
+    '\nAnswer with JSON only: {"items":[{"n":1,"offers":[{"price":number,"unit":"","title":"","seller":"","brand":"","url":"","gst":"incl|excl|unknown"}]}]}';
+}
+
+function json_(text) {
+  const t = String(text || '');
+  const a = t.indexOf('{');
+  const b = t.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  try {
+    return JSON.parse(t.slice(a, b + 1));
+  } catch (e) {
+    return null;
+  }
+}
+
+function offerOf_(o, provider, sites) {
+  const price = Number(o.price);
+  const url = String(o.url || '');
+  if (!(price > 0) || !/^https?:\/\//.test(url)) return null;
+  // Gemini's links must be among the pages its Google search returned.
+  if (sites && !sites.some(function (d) { const h = host_(url); return h === d || h.endsWith('.' + d) || d.endsWith('.' + h); })) return null;
+  return {
+    provider: provider,
+    price: price,
+    title: clip_(o.title, 160),
+    seller: clip_(o.seller, 60) || host_(url),
+    brand: clip_(o.brand, 60),
+    url: url,
+    unit: clip_(o.unit, 20),
+    note: o.gst === 'incl' ? 'price includes GST' : o.gst === 'excl' ? 'price before GST' : '',
+  };
+}
+
+function geminiRequest_(items, key) {
+  return {
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key),
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({ contents: [{ parts: [{ text: offerPrompt_(items) }] }], tools: [{ google_search: {} }] }),
+    muteHttpExceptions: true,
+  };
+}
+
+function geminiParse_(res, items, out) {
+  if (res.getResponseCode() !== 200) throw new Error('Gemini search failed (' + res.getResponseCode() + ')');
+  const data = JSON.parse(res.getContentText());
+  const cand = (data.candidates || [])[0] || {};
+  const text = ((cand.content || {}).parts || []).map(function (p) { return p.text || ''; }).join('');
+  const sites = ((cand.groundingMetadata || {}).groundingChunks || []).map(function (c) { return String((c.web || {}).title || '').toLowerCase().replace(/^www\./, ''); }).filter(String);
+  const j = json_(text);
+  if (!j || !Array.isArray(j.items)) throw new Error('Gemini gave no price list');
+  if (!sites.length) return;
+  j.items.forEach(function (row) {
+    const it = items[Number(row.n) - 1];
+    if (!it) return;
+    (row.offers || []).forEach(function (o) {
+      const c = offerOf_(o, 'gemini', sites);
+      if (c) out[it.id].candidates.push(c);
+    });
+  });
+}
+
+function serperParse_(res, it, r) {
+  if (res.getResponseCode() !== 200) throw new Error('Google search failed (' + res.getResponseCode() + ')');
+  const data = JSON.parse(res.getContentText());
+  (data.shopping || []).forEach(function (s) {
+    const price = rupees_(s.price);
+    if (price) r.candidates.push({ provider: 'google', price: price, title: clip_(s.title, 160), seller: clip_(s.source, 60) || host_(s.link), url: s.link, note: 'Google Shopping listing' });
+  });
+  (data.organic || []).forEach(function (o) {
+    const price = rupees_((o.price || '') + ' ' + (o.snippet || ''));
+    if (price) r.candidates.push({ provider: 'google', price: price, title: clip_(o.title, 160), seller: host_(o.link), url: o.link, note: clip_(o.snippet, 200) });
+  });
+}
+
+function openaiParse_(res, it, r) {
+  if (res.getResponseCode() !== 200) throw new Error('ChatGPT search failed (' + res.getResponseCode() + ')');
+  const data = JSON.parse(res.getContentText());
+  let text = data.output_text || '';
+  if (!text) (data.output || []).forEach(function (o) { (o.content || []).forEach(function (c) { if (c.type === 'output_text') text += c.text; }); });
+  const j = json_(text);
+  if (!j || !Array.isArray(j.items)) throw new Error('ChatGPT gave no price list');
+  j.items.forEach(function (row) {
+    (row.offers || []).forEach(function (o) {
+      const c = offerOf_(o, 'chatgpt', null);
+      if (c) r.candidates.push(c);
+    });
+  });
 }
 
 function reply_(obj) {
