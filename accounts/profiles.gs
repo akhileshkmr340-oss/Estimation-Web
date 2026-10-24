@@ -766,7 +766,8 @@ function sendMail_(user, body) {
   const box = mailbox_(book);
   const label = rfqLabel_();
   const problem = {};
-  const drive = saveToDrive_(body.project, blobs, problem);
+  // Connected apps on the website can turn saving in Drive off.
+  const drive = body.saveToDrive === false ? '' : saveToDrive_(body.project, blobs, problem);
   const sent = [], errors = [];
   // A new RFQ is one email per To address; anything else is one email.
   const groups = mode === 'new' ? to.map(function (a) { return [a]; }) : [to];
