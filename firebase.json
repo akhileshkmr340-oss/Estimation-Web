@@ -8,7 +8,10 @@
       "**/node_modules/**",
       "server/**",
       "accounts/**",
-      "README.md"
+      "README.md",
+      ".git/**",
+      "**/.git/**",
+      ".github/**"
     ],
     "cleanUrls": false,
     "headers": [

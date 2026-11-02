@@ -69862,7 +69862,7 @@ k=o.r
 s=A.ey(!1,B.apl,n,n,!0,n,n,k?n:o.gam0(),n,n)
 r=o.x
 q=o.y
-if(q===$)q=o.y=o.a.c.CW?"You were logged out after 5 minutes without use. Your results were cleared, so log in and add the files again.":n
+if(q===$)q=o.y=o.a.c.CW?"You were logged out after 60 minutes without use. Your results were cleared, so log in and add the files again.":n
 p=k?n:o.gxz()
 p=A.o8(k?B.qC:B.Ho,n,p)
 return A.FE(new A.xT(A.aL(A.a([m,B.b3,l,new A.d2(B.dK,n,n,s,n),new A.C8(r,q,n),p,B.ay,A.ey(!1,B.ap8,n,n,!0,n,n,k?n:o.a.d,n,n)],t.p),B.K,n,B.h,B.l),n),o.d)}}
@@ -70389,11 +70389,11 @@ A.b5U()}if(p.r)p.L(new A.aOj(p))
 return}s=new A.dt(Date.now(),0,!1).fz(p.d)
 p.a.toString
 o=s.a
-if(o>=3e8){p.d=new A.dt(Date.now(),0,!1)
+if(o>=36e8){p.d=new A.dt(Date.now(),0,!1)
 p.L(new A.aOk(p))
 n.CW=!0
 n.AK()
-return}o=3e8-o
+return}o=36e8-o
 r=B.e.bq(o,1e6)
 q=o<=3e7
 if(q===p.r)o=q&&r!==p.w
