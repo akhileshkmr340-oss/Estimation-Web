@@ -4,9 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-This repo is the **published GitHub Pages site** (https://akhileshkmr340-oss.github.io/estimation-web/), served from `main` (`.nojekyll`, so every file is served as-is). It holds the output of `flutter build web`, not the Dart source. Do not hand-edit compiled files (`main.dart.js`, `worker/extract.js`, `flutter*.js`, `canvaskit/`, `assets/`): change the source, rebuild, and copy the build output over the repo root.
+This repo is the **published website**, https://estimation-6fa32.web.app (Firebase Hosting). Every push to `main` is published by the "Deploy to Firebase Hosting" GitHub Action; "Check the website" and "Load time" run after it. GitHub Pages is off: never push `gh-pages`, and never give the github.io address. The repo holds the output of `flutter build web`, not the Dart source. Do not hand-edit compiled files (`main.dart.v-*.js`, `worker/extract.js`, `flutter*.js`, `ck-*/`, `assets/`): change the source, rebuild, and copy the build output over the repo root.
 
-Files here that are hand-written and also live in the source's `web/` folder: `index.html`, `estimation.js`, `auth.js`, `accounts-config.js`, `dwg/dwg-read.js`, `dwg/dwg-worker.js`, `ocr/ocr-worker.js`. `accounts/` (the Apps Script and its README) is copied from the source's `accounts/`. Keep both copies the same.
+Deploy (the build is fingerprinted by `tool/fingerprint.py`): `git rm` the old `*.v-*.js` files and `assets/**/*.v-*` fonts, copy the new `*.v-*.js`, `index.html`, `flutter_bootstrap.js`, `agent-button.js`, `agent/`, `ck-*/` and the whole `build/web/assets` folder, then push `main`. Never copy `main.dart.js`. Keep `firebase.json` (its hosting ignore list must keep `.git/**`, `**/.git/**` and `.github/**`, or the repository is published) and the workflows.
+
+Files here that are hand-written and also live in the source's `web/` folder: `index.html`, `estimation.js`, `auth.js`, `accounts-config.js`, `agent-button.js`, `agent/index.html`, `dwg/dwg-read.js`, `dwg/dwg-worker.js`, `ocr/ocr-worker.js`. `accounts/` (the Apps Script and its README) is copied from the source's `accounts/`. Keep both copies the same; a change made only here is lost on the next rebuild.
+
+Features a rebuild must keep (all in the source since 2026-11-02):
+- Idle logout after **60 minutes** without use (`lib/ui/idle_logout.dart`, message in `lib/ui/auth_screen.dart`). "Check the website" fails the bundle check if the live message is not 60 minutes.
+- The **AI Pricing Agent**: `agent-button.js` (floating button for logged-in users, panel with `agent/` inside, and `window.estimationAgent = { open(), price(fileName, bytes) }`) and `agent/index.html` (calls the Firebase Functions agentStart, agentProgress, agentResult, agentCancel and agentJobs in us-central1; listens for `{type: 'estimation-agent-price'}` messages from the same origin). `index.html` loads `agent-button.js` after `auth.v-*.js`.
+- The **AI Pricing** ribbon tab (logged-in users; `lib/ui/shell.dart`) and **Compute with AI Agent** on the project page ribbon and download step (`lib/ui/project_screen.dart`), which builds the Get Excel workbook in memory and calls `window.estimationAgent.price` through `lib/services/ai_agent.dart`.
 
 The website is a browser version of the Estimation Android app (repo `akhileshkmr340-oss/estimation-app`). It turns drawings and documents into a bill of quantities in Excel (S. No., Description, Ratings, UOM, Make, Quantity). Everything runs in the browser: files and outputs are never uploaded or stored.
 
@@ -38,7 +45,7 @@ Command-line test tools (in `tool/`) run the readers on one file and can write t
 - **Workers:** `lib/worker/extract_job.dart` is the pure-Dart reading step and returns plain JSON tagged with a `type`. `doc_codec.dart` serializes documents. `extract_worker.dart` is the worker entry point. `lib/services/processing_service.dart` (on the page) sends each file to a worker. Large PDFs are split into page ranges and read by up to four workers at once, and the results are merged on the page.
 - **Browser glue:** `estimation.js` does file picking and drag-and-drop, downloads (through `window.claude.use('downloads')` when shown inside a claude.ai artifact), Tesseract OCR and pdf.js rendering. Dart calls it through `lib/services/browser.dart` (`dart:js_interop`).
 - **DWG:** `dwg/dwg-worker.js` (a module worker) runs LibreDWG compiled to WebAssembly (@mlightcad/libredwg-web 0.8.0). `dwg-read.js` flattens model space, with blocks expanded, into texts and block counts. Dart reads that JSON with `FlatDrawing.fromJson`.
-- **Storage:** none. Projects live in memory for the open tab (`lib/services/project_store.dart`), and each file's bytes are released once it has been read.
+- **Storage:** drawings, items and outputs are never stored. Projects live in memory for the open tab (`lib/services/project_store.dart`), and each file's bytes are released once it has been read. Only project details are saved, in the user's Google Sheet. The AI Pricing Agent sends the BOQ workbook to its Firebase Functions only when the user starts a job.
 - **UI** (`lib/ui`): copies of the app's screens with the web services swapped in, plus `auth_screen.dart`.
 
 ## Accounts
