@@ -23,6 +23,7 @@
   input[type=number], input[type=file] { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
   input[type=number] { width: 120px; }
   button { font: inherit; padding: 9px 18px; border-radius: 20px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); cursor: pointer; margin-top: 14px; }
+  button.secondary { background: none; color: var(--warn); border-color: var(--warn); margin-left: 8px; }
   button.link { background: none; color: var(--accent); border: none; padding: 0; margin: 0; text-decoration: underline; border-radius: 0; }
   button:disabled { opacity: .5; cursor: default; }
   a { color: var(--accent); }
@@ -35,7 +36,7 @@
   th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; }
   .status-done { color: var(--ok); font-weight: 600; }
-  .status-failed { color: var(--warn); font-weight: 600; }
+  .status-failed, .status-cancelled { color: var(--warn); font-weight: 600; }
   ul.steps { margin: 10px 0 0; padding-left: 20px; color: var(--muted); }
   @media (max-width: 560px) { th:nth-child(3), td:nth-child(3) { display: none; } }
 </style>
@@ -72,6 +73,7 @@
     <div class="bar"><div id="jobBar"></div></div>
     <div id="jobText" style="white-space: pre-line"></div>
     <button id="downloadBtn" class="hidden" type="button">Download priced workbook</button>
+    <button id="cancelBtn" class="hidden secondary" type="button">Cancel pricing</button>
     <div class="error" id="jobError"></div>
   </section>
 
@@ -120,6 +122,7 @@
     return body.result;
   }
 
+  const FINISHED = ['done', 'failed', 'cancelled'];
   const STATUS = {
     queued: 'Waiting to start',
     reading: 'Reading the BOQ',
@@ -127,6 +130,7 @@
     writing: 'Writing the priced workbook',
     done: 'Done',
     failed: 'Failed',
+    cancelled: 'Cancelled',
   };
 
   auth.onAuthStateChanged((user) => {
@@ -188,7 +192,7 @@
       const j = await call('agentProgress', { jobId });
       if (jobId !== current) return;
       render(j);
-      if (j.status === 'done' || j.status === 'failed') { loadHistory(false); return; }
+      if (FINISHED.includes(j.status)) { loadHistory(false); return; }
     } catch (e) {
       $('jobError').textContent = message(e);
     }
@@ -212,6 +216,8 @@
     $('jobText').textContent = text;
     $('jobError').textContent = j.status === 'failed' ? j.error : '';
     show('downloadBtn', j.status === 'done');
+    show('cancelBtn', !FINISHED.includes(j.status));
+    $('cancelBtn').onclick = () => cancel(j.jobId, $('cancelBtn'));
     $('downloadBtn').onclick = () => download(j.jobId, $('downloadBtn'));
   }
 
@@ -223,6 +229,24 @@
     let t = `${mins(spent)} so far`;
     if (j.status === 'pricing' && j.done > 0 && j.total > j.done) t += `, about ${mins((spent / j.done) * (j.total - j.done))} left`;
     return t;
+  }
+
+  // Stops a job on the server: lines already priced are dropped, nothing more is charged to
+  // the AI services, and a new BOQ can be started straight away.
+  async function cancel(jobId, button) {
+    if (!confirm('Cancel pricing this BOQ? The lines priced so far are discarded.')) return;
+    button.disabled = true;
+    button.textContent = 'Cancelling…';
+    try {
+      render(await call('agentCancel', { jobId }));
+      stopWatch();
+      loadHistory(false);
+    } catch (e) {
+      $('jobError').textContent = message(e);
+    } finally {
+      button.disabled = false;
+      button.textContent = button.id === 'cancelBtn' ? 'Cancel pricing' : 'Cancel';
+    }
   }
 
   async function download(jobId, button) {
@@ -272,10 +296,17 @@
           b.textContent = 'Download';
           b.onclick = () => download(j.jobId, b);
           tr.children[3].appendChild(b);
-        } else if (j.status !== 'failed') {
+        } else if (!FINISHED.includes(j.status)) {
           b.textContent = 'Follow';
           b.onclick = () => watch(j.jobId);
           tr.children[3].appendChild(b);
+          const c = document.createElement('button');
+          c.className = 'link';
+          c.type = 'button';
+          c.style.marginLeft = '12px';
+          c.textContent = 'Cancel';
+          c.onclick = () => cancel(j.jobId, c);
+          tr.children[3].appendChild(c);
         } else {
           tr.children[3].textContent = j.error ? j.error.slice(0, 80) : '';
           tr.children[3].className = 'muted';
@@ -283,7 +314,7 @@
         body.appendChild(tr);
       }
       if (resume && !current) {
-        const running = jobs.find((j) => !['done', 'failed'].includes(j.status));
+        const running = jobs.find((j) => !FINISHED.includes(j.status));
         if (running) watch(running.jobId);
       }
     } catch (e) {

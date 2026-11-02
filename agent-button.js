@@ -102,7 +102,7 @@
       timer = setTimeout(check, 60000);
       return;
     }
-    const running = jobs.find((j) => !['done', 'failed'].includes(j.status));
+    const running = jobs.find((j) => !['done', 'failed', 'cancelled'].includes(j.status));
     if (running) {
       const pct = running.total ? Math.round((running.done / running.total) * 95) + 3 : 2;
       let t = running.total ? `AI pricing · ${running.done}/${running.total}` : 'AI pricing · starting';
