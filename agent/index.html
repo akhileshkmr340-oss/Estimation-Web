@@ -185,7 +185,7 @@
     const jobId = current;
     if (!jobId) return;
     try {
-      const j = await call('agentStatus', { jobId });
+      const j = await call('agentProgress', { jobId });
       if (jobId !== current) return;
       render(j);
       if (j.status === 'done' || j.status === 'failed') { loadHistory(false); return; }
