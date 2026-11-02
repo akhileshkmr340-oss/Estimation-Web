@@ -53,23 +53,52 @@
   document.body.appendChild(panel);
   const box = panel.querySelector('.ai-box');
   let frame = null;
+  let frameReady = false;
+  let pending = null; // a pricing request waiting for the panel page to load
 
   function open() {
     if (!frame) {
       frame = document.createElement('iframe');
       frame.title = 'AI Pricing Agent';
       frame.src = 'agent/';
+      frame.addEventListener('load', () => { frameReady = true; send(); });
       box.appendChild(frame);
     }
     panel.style.display = 'block';
   }
+  function send() {
+    if (!pending || !frameReady || !frame.contentWindow) return;
+    frame.contentWindow.postMessage(pending, location.origin);
+    pending = null;
+  }
+  function toBase64(bytes) {
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+
+  // For the app (Dart, through js_interop): open the panel, or open it and start pricing
+  // a BOQ workbook the app has just built (a Uint8Array of .xlsx bytes).
+  window.estimationAgent = {
+    open() { open(); },
+    price(fileName, bytes) {
+      const data = toBase64(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+      pending = { type: 'estimation-agent-price', fileName: String(fileName || 'BOQ.xlsx'), data };
+      open();
+      send();
+    },
+  };
   function close() {
     panel.style.display = 'none';
     check(); // show the latest progress on the button
   }
   btn.addEventListener('click', open);
   panel.querySelector('header button').addEventListener('click', close);
-  panel.addEventListener('click', (e) => { if (e.target === panel) close(); });
+  // Close on a click on the dark backdrop that also started there: the click that opened the
+  // panel from the app (a ribbon or page button) ends on the backdrop and must not close it.
+  let downOnBackdrop = false;
+  panel.addEventListener('pointerdown', (e) => { downOnBackdrop = e.target === panel; });
+  panel.addEventListener('click', (e) => { if (e.target === panel && downOnBackdrop) close(); downOnBackdrop = false; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && panel.style.display === 'block') close(); });
 
   // ---- Progress of the user's latest job, on the button ----
