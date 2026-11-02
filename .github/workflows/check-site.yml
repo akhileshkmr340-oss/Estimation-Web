@@ -21,6 +21,18 @@ jobs:
               echo "::notice::$site/$f -> $code$same"
             done
           done
+      - name: AI agent, 60-minute logout, no .git published
+        run: |
+          site=https://estimation-6fa32.web.app
+          curl -s "$site/" | grep -q 'agent-button.js' && echo "::notice::index.html loads agent-button.js" || echo "::error::index.html does not load agent-button.js"
+          for f in agent-button.js agent/index.html; do
+            code=$(curl -s -o /tmp/f -w '%{http_code}' "$site/$f"); cmp -s /tmp/f "$f" && same="same as repo" || same="DIFFERENT from repo"
+            echo "::notice::$site/$f -> $code ($same)"
+          done
+          echo "::notice::$site/agent/ -> $(curl -s -o /dev/null -w '%{http_code}' "$site/agent/")"
+          curl -s "$site/$(ls main.dart.v-*.js)" | grep -q 'logged out after 60 minutes' && echo "::notice::Idle logout: 60 minutes" || echo "::error::Idle logout is not 60 minutes in the live bundle"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$site/.git/config")
+          [ "$code" = 404 ] && echo "::notice::$site/.git/config -> 404" || echo "::error::$site/.git/config -> $code (the repository is being published)"
       - name: Old GitHub Pages address is off
         run: echo "::notice::https://akhileshkmr340-oss.github.io/Estimation-Web/ -> $(curl -s -o /dev/null -w '%{http_code}' https://akhileshkmr340-oss.github.io/Estimation-Web/)"
       - name: Logins allowed on the address
