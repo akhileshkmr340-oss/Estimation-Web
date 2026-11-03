@@ -20,7 +20,8 @@
   h2 { font-size: 16px; margin: 0 0 10px; }
   p.lead { color: var(--muted); margin: 0 0 4px; }
   label { display: block; font-weight: 600; margin: 12px 0 4px; }
-  input[type=number], input[type=file] { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  input[type=number], input[type=file], select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 4px; }
   input[type=number] { width: 120px; }
   button { font: inherit; padding: 9px 18px; border-radius: 20px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); cursor: pointer; margin-top: 14px; }
   button.secondary { background: none; color: var(--warn); border-color: var(--warn); margin-left: 8px; }
@@ -54,6 +55,16 @@
     <form id="startForm">
       <label for="file">Client BOQ (.xlsx)</label>
       <input id="file" type="file" accept=".xlsx" required>
+      <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
+      <input id="drawings" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
+      <div class="hint">Panels and DBs drawn in these SLDs are priced from their feeders. To use them with “Compute with AI Agent”, add them here before computing.</div>
+      <label for="panelSpec">Panel specification of this client</label>
+      <select id="panelSpec">
+        <option value="budget">Budget: plain makes, no special metering</option>
+        <option value="standard" selected>Standard: resorts, commercial, most industrial</option>
+        <option value="premium">Premium: data centres, Reliance and similar specifications</option>
+        <option value="stringent">Stringent: client-specified makes and construction (Toyota, HPCL)</option>
+      </select>
       <label for="margin">Margin %</label>
       <input id="margin" type="number" min="0" max="100" step="0.5" value="20">
       <button type="submit" id="startBtn">Start pricing</button>
@@ -61,7 +72,7 @@
     </form>
     <ul class="steps">
       <li>Lines priced before are taken from your own past offers and costings.</li>
-      <li>Panels and DBs that refer to an SLD are priced from your past panel offers, with a CHECK note.</li>
+      <li>Panels and DBs drawn in the SLDs you add are built up from their feeders; others are priced from your past panel offers, with a CHECK note.</li>
       <li>Everything else is broken into parts (main item, accessories, supports, tagging, installation) and priced part by part.</li>
       <li>It runs on the server: you can close this panel and come back; the job appears below.</li>
     </ul>
@@ -128,6 +139,7 @@
   const STATUS = {
     queued: 'Waiting to start',
     reading: 'Reading the BOQ',
+    drawings: 'Reading the SLD drawings',
     pricing: 'Pricing the lines',
     writing: 'Writing the priced workbook',
     done: 'Done',
@@ -151,6 +163,103 @@
     return btoa(s);
   }
 
+  // ---- SLD drawings ----
+  // Each drawing page is drawn here and cut into overlapping JPEG tiles, so the server's
+  // vision model can read small feeder text; the server never handles the PDF itself.
+  const TILE = 1280;
+  const OVERLAP = 64;
+  const MAX_TILES = 9;
+  const MAX_PAGES = 40;
+  // The site's own pdf.js (4.x, an ES module).
+  let pdfjs = null;
+  function loadPdfjs() {
+    pdfjs = pdfjs || import(new URL('../pdfjs/pdf.min.js', location.href).href).then(
+      (lib) => {
+        lib.GlobalWorkerOptions.workerSrc = new URL('../pdfjs/pdf.worker.min.js', location.href).href;
+        return lib;
+      },
+      () => {
+        pdfjs = null;
+        throw new Error('Could not load the PDF reader. Check the internet and try again.');
+      },
+    );
+    return pdfjs;
+  }
+  const across = (px) => Math.max(1, Math.ceil((px - OVERLAP) / (TILE - OVERLAP)));
+  // The scale for a page w x h (at scale 1): about 6 px per mm, at least 2400 px on the long
+  // side, then smaller until it fits in MAX_TILES tiles.
+  function fitScale(w, h, base) {
+    let s = Math.max(base, 2400 / Math.max(w, h));
+    while (s > 0.2 && across(w * s) * across(h * s) > MAX_TILES) s *= 0.9;
+    return s;
+  }
+  function canvasOf(w, h) {
+    const c = document.createElement('canvas');
+    c.width = Math.round(w);
+    c.height = Math.round(h);
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  async function tilesOf(page) {
+    const out = [];
+    const cols = across(page.width);
+    const rows = across(page.height);
+    const tw = Math.min(TILE, page.width);
+    const th = Math.min(TILE, page.height);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = Math.min(c * (TILE - OVERLAP), page.width - tw);
+        const y = Math.min(r * (TILE - OVERLAP), page.height - th);
+        const t = canvasOf(tw, th);
+        t.getContext('2d').drawImage(page, x, y, tw, th, 0, 0, tw, th);
+        const blob = await new Promise((res) => t.toBlob(res, 'image/jpeg', 0.85));
+        out.push(toBase64(await blob.arrayBuffer()));
+      }
+    }
+    return out;
+  }
+  // Every page of the chosen drawings as { where, canvas }, one at a time.
+  async function* drawingPagesOf(files) {
+    let n = 0;
+    for (const file of files) {
+      if (/\.pdf$/i.test(file.name)) {
+        const lib = await loadPdfjs();
+        const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+        for (let p = 1; p <= doc.numPages && n < MAX_PAGES; p++, n++) {
+          const page = await doc.getPage(p);
+          const v1 = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale: fitScale(v1.width, v1.height, 2.1) });
+          const canvas = canvasOf(viewport.width, viewport.height);
+          // "print": drawn without waiting for screen frames, which stop while the tab is hidden.
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport, intent: 'print' }).promise;
+          yield { where: `${file.name} page ${p}`, canvas };
+        }
+      } else if (n < MAX_PAGES) {
+        const img = await createImageBitmap(file);
+        const s = Math.min(1, fitScale(img.width, img.height, 1));
+        const canvas = canvasOf(img.width * s, img.height * s);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        n++;
+        yield { where: file.name, canvas };
+      }
+    }
+  }
+  // Sends the chosen drawings; returns their batch id, or null when none were chosen.
+  async function sendDrawings(files, progress) {
+    if (!files.length) return null;
+    const ids = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const batch = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => ids[b % ids.length]).join('');
+    let page = 0;
+    for await (const { where, canvas } of drawingPagesOf(files)) {
+      progress(`Sending drawing page ${page + 1}…`);
+      await call('agentDrawing', { batch, where, page, tiles: await tilesOf(canvas) });
+      page++;
+    }
+    return page ? batch : null;
+  }
+
   // Starts a job from a file name and its bytes as base64, as the form and the app both do.
   async function start(fileName, data, size) {
     $('startError').textContent = '';
@@ -160,7 +269,10 @@
     $('startBtn').disabled = true;
     $('startBtn').textContent = 'Uploading…';
     try {
-      const { jobId } = await call('agentStart', { fileName, data, margin });
+      const drawings = await sendDrawings([...$('drawings').files], (t) => { $('startBtn').textContent = t; });
+      $('startBtn').textContent = 'Uploading the BOQ…';
+      const { jobId } = await call('agentStart', { fileName, data, margin, drawings, panelSpec: $('panelSpec').value });
+      $('drawings').value = '';
       watch(jobId);
       return true;
     } catch (e) {
@@ -227,6 +339,11 @@
     const timing = timeText(j);
     if (timing && j.status !== 'done' && j.status !== 'failed') text += ` · ${timing}`;
     if (j.working) text += `\nNow: ${j.working}`;
+    if (j.drawings && j.status !== 'drawings' && j.status !== 'queued' && j.status !== 'reading') {
+      const d = j.drawings;
+      text += `\nSLD drawings: ${d.pages} page(s) read; boards found: ${d.boards.length ? d.boards.join(', ') : 'none'}.`;
+      if (d.notes.length) text += `\n${d.notes.join('\n')}`;
+    }
     if (j.status === 'done' && j.sources) {
       const s = j.sources;
       text += ` · ${j.total} lines; parts from your past rates: ${s.db || 0}, online: ${s.web || 0}, AI estimates: ${s.estimate || 0}. ` +
