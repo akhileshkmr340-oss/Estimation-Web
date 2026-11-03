@@ -22,6 +22,14 @@
   label { display: block; font-weight: 600; margin: 12px 0 4px; }
   input[type=number], input[type=file], select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
   .hint { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .board { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 12px; }
+  .board.off { opacity: .55; }
+  .board-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .board-head input[type=text] { flex: 1 1 200px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; font-weight: 600; }
+  .board-head select { width: auto; padding: 7px 9px; }
+  .board-head label { display: inline-flex; gap: 6px; align-items: center; margin: 0; font-weight: 400; }
+  .board textarea { width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px/1.5 ui-monospace, Consolas, monospace; resize: vertical; }
+  button.ghost { background: none; color: var(--accent); }
   input[type=number] { width: 120px; }
   button { font: inherit; padding: 9px 18px; border-radius: 20px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); cursor: pointer; margin-top: 14px; }
   button.secondary { background: none; color: var(--warn); border-color: var(--warn); margin-left: 8px; }
@@ -84,6 +92,8 @@
     <div class="bar"><div id="jobBar"></div></div>
     <div id="jobText" style="white-space: pre-line"></div>
     <button id="downloadBtn" class="hidden" type="button">Download priced workbook</button>
+    <div id="review" class="hidden"></div>
+    <button id="confirmBtn" class="hidden" type="button">Price with these feeders</button>
     <button id="cancelBtn" class="hidden secondary" type="button">Cancel pricing</button>
     <div class="error" id="jobError"></div>
   </section>
@@ -140,6 +150,7 @@
     queued: 'Waiting to start',
     reading: 'Reading the BOQ',
     drawings: 'Reading the SLD drawings',
+    review: 'Waiting for your check of the drawings',
     pricing: 'Pricing the lines',
     writing: 'Writing the priced workbook',
     done: 'Done',
@@ -324,6 +335,7 @@
       if (jobId !== current) return;
       render(j);
       if (FINISHED.includes(j.status)) { loadHistory(false); return; }
+      if (j.status === 'review') return; // nothing moves until the check is sent
     } catch (e) {
       $('jobError').textContent = message(e);
     }
@@ -355,6 +367,78 @@
     show('cancelBtn', !FINISHED.includes(j.status));
     $('cancelBtn').onclick = () => cancel(j.jobId, $('cancelBtn'));
     $('downloadBtn').onclick = () => download(j.jobId, $('downloadBtn'));
+    renderReview(j);
+  }
+
+  // ---- Check the boards read from the drawings (status "review") ----
+  // The free vision models misread dense consultant SLDs, so the user checks each board's
+  // feeders before anything is priced. One feeder per line: "6 x 16A DP MCB OG".
+  let reviewFor = null;
+  const shown = (name) => name.replace(/\bMCB-WAY\b/, 'MCB'); // the server's name for a DB way
+  function feedersOf(text) {
+    return text.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+      const m = /^(\d+)\s*(?:x|×|\*|nos?\.?)\s*(.+)$/i.exec(l);
+      return m ? { qty: Number(m[1]), name: m[2].trim() } : { qty: 1, name: l };
+    });
+  }
+  function el(tag, props, ...children) {
+    const e = Object.assign(document.createElement(tag), props || {});
+    for (const c of children) e.append(c);
+    return e;
+  }
+  function boardEditor(p) {
+    const include = el('input', { type: 'checkbox', checked: true });
+    const name = el('input', { type: 'text', value: p.name, title: 'Board name: the BOQ line that names it is priced from it' });
+    const busbar = el('select', {}, el('option', { value: 'copper', textContent: 'Copper busbar' }), el('option', { value: 'aluminium', textContent: 'Aluminium busbar' }));
+    busbar.value = p.busbar === 'aluminium' ? 'aluminium' : 'copper';
+    const feeders = el('textarea', { rows: Math.min(18, p.feeders.length + 1), spellcheck: false, value: p.feeders.map((f) => `${f.qty} x ${shown(f.name)}`).join('\n') });
+    const box = el('div', { className: 'board' },
+      el('div', { className: 'board-head' }, el('label', {}, include, 'Include'), name, busbar),
+      el('div', { className: 'hint', textContent: [p.where && `Read from ${p.where}`, p.title].filter(Boolean).join(' · ') }),
+      feeders,
+      el('div', { className: 'hint', textContent: p.lines.length ? `Prices BOQ line ${p.lines.map((l) => `row ${l.row} “${l.text}”`).join('; ')}` : 'No BOQ line names this board yet: rename it as the BOQ does, or untick it.' }));
+    include.onchange = () => box.classList.toggle('off', !include.checked);
+    box.value = () => (include.checked ? { i: p.i, name: name.value, busbar: busbar.value, feeders: feedersOf(feeders.value) } : null);
+    return box;
+  }
+  function renderReview(j) {
+    const on = j.status === 'review' && !!j.review;
+    show('review', on);
+    show('confirmBtn', on);
+    if (!on || reviewFor === j.jobId) return; // keep what the user has typed
+    reviewFor = j.jobId;
+    const r = j.review;
+    const boards = r.panels.map(boardEditor);
+    const list = el('div', {}, ...boards);
+    const add = el('button', { type: 'button', className: 'ghost', textContent: 'Add a board' });
+    add.onclick = () => {
+      const b = boardEditor({ i: -1, name: '', title: '', where: '', busbar: 'copper', feeders: [], lines: [] });
+      boards.push(b);
+      list.append(b);
+    };
+    $('review').replaceChildren(
+      el('p', { className: 'lead', textContent: r.panels.length
+        ? 'Check each board read from the drawings before pricing: correct the feeders (one per line, e.g. “6 x 16A DP MCB OG”, “1 x 400A 4P MCCB IC”, “2 x 37KW SD”), rename a board as the BOQ names it, or untick it.'
+        : 'No board could be read from the drawings. Add the boards yourself, or press the button to price without them.' }),
+      list,
+      add,
+      ...(r.unmatched.length ? [el('div', { className: 'hint', textContent: `Panel lines in the BOQ that no board matches (priced from past offers unless a board is named as they are): ${r.unmatched.map((l) => `row ${l.row} “${l.text}”`).join('; ')}` })] : []),
+    );
+    $('confirmBtn').onclick = async () => {
+      const btn = $('confirmBtn');
+      btn.disabled = true;
+      btn.textContent = 'Starting…';
+      try {
+        const next = await call('agentConfirm', { jobId: j.jobId, panels: boards.map((b) => b.value()).filter(Boolean) });
+        render(next);
+        timer = setTimeout(poll, 5000);
+      } catch (e) {
+        $('jobError').textContent = message(e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Price with these feeders';
+      }
+    };
   }
 
   // "3 min so far, about 4 min left" from the job's start time and lines done (server clock).
