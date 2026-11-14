@@ -78,12 +78,18 @@
   }
 
   // For the app (Dart, through js_interop): open the panel, or open it and start pricing
-  // a BOQ workbook the app has just built (a Uint8Array of .xlsx bytes).
+  // a BOQ workbook the app has just built (a Uint8Array of .xlsx bytes). When that BOQ merges
+  // several client .xlsx files, each file goes as its own job instead (boq-files.js), so each
+  // comes back as its own workbook, kept as the client sent it.
   window.estimationAgent = {
     open() { open(); },
-    price(fileName, bytes) {
-      const data = toBase64(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
-      pending = { type: 'estimation-agent-price', fileName: String(fileName || 'BOQ.xlsx'), data };
+    async price(fileName, bytes) {
+      const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      let files = null;
+      try { files = window.estimationBoqFiles ? await window.estimationBoqFiles.agentFiles(u8) : null; } catch (_) { files = null; }
+      pending = files && files.length
+        ? { type: 'estimation-agent-price', files: files.map((f) => ({ fileName: f.name, data: toBase64(f.bytes) })) }
+        : { type: 'estimation-agent-price', fileName: String(fileName || 'BOQ.xlsx'), data: toBase64(u8) };
       open();
       send();
     },

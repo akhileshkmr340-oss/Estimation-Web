@@ -317,15 +317,18 @@
     if (await start(files)) $('file').value = '';
   });
 
-  // "Compute with AI Agent" in the app: the BOQ workbook it built, sent by agent-button.js.
-  // Only from this site's own pages; waits for the login to be known.
+  // "Compute with AI Agent" in the app, sent by agent-button.js: the client's BOQ files (one job
+  // each), or the one BOQ workbook the app built. Only from this site's own pages; waits for the
+  // login to be known.
   const signedIn = new Promise((resolve) => { const off = auth.onAuthStateChanged((u) => { if (u) { off(); resolve(); } }); });
   window.addEventListener('message', async (ev) => {
     if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'estimation-agent-price') return;
-    const { fileName, data } = ev.data;
-    if (typeof fileName !== 'string' || typeof data !== 'string') return;
+    const sent = Array.isArray(ev.data.files) ? ev.data.files : [ev.data];
+    const files = sent.filter((f) => f && typeof f.fileName === 'string' && typeof f.data === 'string')
+      .map((f) => ({ name: f.fileName, size: Math.floor((f.data.length * 3) / 4), data: async () => f.data }));
+    if (!files.length) return;
     await signedIn;
-    start([{ name: fileName, size: Math.floor((data.length * 3) / 4), data: async () => data }]);
+    start(files);
   });
 
   // ---- Watch a job ----
