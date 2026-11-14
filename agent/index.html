@@ -59,10 +59,10 @@
 
   <section class="card hidden" id="startCard">
     <h2>Price a BOQ</h2>
-    <p class="lead">Your workbook comes back unchanged, with margin, total and Grand Total columns, a Summary, and a Backup sheet that shows how every rate was built up.</p>
+    <p class="lead">Your workbook comes back unchanged, with margin, total and Grand Total columns, a Summary, and a Backup sheet that shows how every rate was built up. Choose several BOQ files to price them together: each comes back as its own workbook.</p>
     <form id="startForm">
-      <label for="file">Client BOQ (.xlsx)</label>
-      <input id="file" type="file" accept=".xlsx" required>
+      <label for="file">Client BOQ files (.xlsx, one or more)</label>
+      <input id="file" type="file" accept=".xlsx" multiple required>
       <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
       <input id="drawings" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
       <div class="hint">Panels and DBs drawn in these SLDs are priced from their feeders. To use them with “Compute with AI Agent”, add them here before computing.</div>
@@ -271,35 +271,50 @@
     return page ? batch : null;
   }
 
-  // Starts a job from a file name and its bytes as base64, as the form and the app both do.
-  async function start(fileName, data, size) {
+  // Starts one job per BOQ file, as the form and the app both do: each file is priced on its
+  // own and comes back as its own workbook, never merged with the others. The drawings are
+  // sent once and read for every BOQ. `files`: [{ name, size, data() -> bytes as base64 }].
+  async function start(files) {
     $('startError').textContent = '';
-    if (!/\.xlsx$/i.test(fileName)) { $('startError').textContent = 'Choose an Excel .xlsx file (save .xls files as .xlsx first).'; return false; }
-    if (size > 8 * 1024 * 1024) { $('startError').textContent = 'The file must be under 8 MB.'; return false; }
+    const bad = files.map((f) => !/\.xlsx$/i.test(f.name)
+      ? `${f.name}: choose an Excel .xlsx file (save .xls files as .xlsx first).`
+      : f.size > 8 * 1024 * 1024 ? `${f.name}: the file must be under 8 MB.` : '').filter(Boolean);
+    if (bad.length) { $('startError').textContent = bad.join('\n'); return false; }
     const margin = Math.min(100, Math.max(0, $('margin').value === '' ? 20 : Number($('margin').value) || 0)) / 100;
+    const failed = [];
+    let last = null;
     $('startBtn').disabled = true;
     $('startBtn').textContent = 'Uploading…';
     try {
       const drawings = await sendDrawings([...$('drawings').files], (t) => { $('startBtn').textContent = t; });
-      $('startBtn').textContent = 'Uploading the BOQ…';
-      const { jobId } = await call('agentStart', { fileName, data, margin, drawings, panelSpec: $('panelSpec').value });
+      for (const [i, f] of files.entries()) {
+        $('startBtn').textContent = files.length > 1 ? `Uploading BOQ ${i + 1} of ${files.length}…` : 'Uploading the BOQ…';
+        try {
+          ({ jobId: last } = await call('agentStart', { fileName: f.name, data: await f.data(), margin, drawings, panelSpec: $('panelSpec').value }));
+        } catch (e) {
+          failed.push(`${f.name}: ${message(e)}`);
+        }
+      }
       $('drawings').value = '';
-      watch(jobId);
-      return true;
     } catch (e) {
-      $('startError').textContent = message(e);
-      return false;
+      failed.push(message(e));
     } finally {
       $('startBtn').disabled = false;
       $('startBtn').textContent = 'Start pricing';
     }
+    $('startError').textContent = failed.join('\n');
+    if (last) {
+      watch(last);
+      if (files.length > 1) loadHistory(false); // every file's job, each with its own download
+    }
+    return !failed.length;
   }
 
   $('startForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const file = $('file').files[0];
-    if (!file) return;
-    if (await start(file.name, toBase64(await file.arrayBuffer()), file.size)) $('file').value = '';
+    const files = [...$('file').files].map((file) => ({ name: file.name, size: file.size, data: async () => toBase64(await file.arrayBuffer()) }));
+    if (!files.length) return;
+    if (await start(files)) $('file').value = '';
   });
 
   // "Compute with AI Agent" in the app: the BOQ workbook it built, sent by agent-button.js.
@@ -310,7 +325,7 @@
     const { fileName, data } = ev.data;
     if (typeof fileName !== 'string' || typeof data !== 'string') return;
     await signedIn;
-    start(fileName, data, Math.floor((data.length * 3) / 4));
+    start([{ name: fileName, size: Math.floor((data.length * 3) / 4), data: async () => data }]);
   });
 
   // ---- Watch a job ----
