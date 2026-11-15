@@ -124,7 +124,7 @@ const ctx = {
     getThreadById: (id) => { const t = threads.find((x) => x.id === id); return t ? threadObj(t) : null; },
     getMessageById: (id) => { for (const t of threads) { const m = t.messages.find((x) => x.id === id); if (m) return msgObj(m, t); } return null; },
   },
-  Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, computeDigest: (alg, t) => [...crypto.createHash(alg).update(t).digest()], base64EncodeWebSafe: (b) => Buffer.from(b).toString('base64url'), base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (t) => [...Buffer.from(t, 'base64')], newBlob: (bytes, mime, name) => ({ bytes: bytes.length, mime, name }), formatDate: () => '19 Oct 2026' },
+  Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, computeDigest: (alg, t) => [...crypto.createHash(alg).update(t).digest()], base64EncodeWebSafe: (b) => Buffer.from(b).toString('base64url'), base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (t) => [...Buffer.from(t, 'base64')], getUuid: () => crypto.randomUUID(), newBlob: (bytes, mime, name) => ({ bytes: bytes.length, mime, name }), formatDate: () => '19 Oct 2026' },
   MimeType: { MICROSOFT_EXCEL: 'xlsx' },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ setMimeType() { return this; }, t }) },

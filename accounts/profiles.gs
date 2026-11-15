@@ -16,6 +16,14 @@
  * the uploaded workbook is also kept in the Drive folder "Estimation price
  * database".
  *
+ * "User prices" holds the prices each signed-in user adds on the website
+ * ("Add to your prices": typed one by one, or imported from a price file
+ * after a confirmation). Each row belongs to one account (User ID) and is
+ * used only for that account's pricing. The website never lists them for
+ * the user; only the developer (DEVELOPER_UIDS script property, the account
+ * that owns the price database, or the account with this script owner's own
+ * email) can list, change, delete or export anyone's prices.
+ *
  * Requests for quote: the owner's supplier list is kept in the "Suppliers"
  * sheet. The owner writes each Request for Quote on the website's RFQ tab
  * (From, To, CC, text and the items with no rate) and clicks Send; the
@@ -48,6 +56,11 @@ function doPost(e) {
     if (body.action === 'deleteProject') return reply_(deleteProject_(user, String(body.id || '')));
     if (body.action === 'getRates') return reply_(getRates_(user));
     if (body.action === 'saveRates') return reply_(saveRates_(user, body));
+    if (body.action === 'addPrices') return reply_(addPrices_(user, body));
+    if (body.action === 'devUsers') return reply_(devUsers_(user));
+    if (body.action === 'devPrices') return reply_(devPrices_(user, body));
+    if (body.action === 'devUpdatePrice') return reply_(devUpdatePrice_(user, body));
+    if (body.action === 'devDeletePrices') return reply_(devDeletePrices_(user, body));
     if (body.action === 'getSuppliers') return reply_(getSuppliers_(user));
     if (body.action === 'saveSuppliers') return reply_(saveSuppliers_(user, body));
     if (body.action === 'sendRfq') return reply_(sendRfq_(user, body));
@@ -244,7 +257,7 @@ function deleteProject_(user, id) {
 
 const RATES = 'Rate database';
 const RATES_ACCESS = 'Rate database access';
-const RATE_HEADERS = ['Description', 'Heading above it in the BOQ', 'UOM', 'Supply rate (₹)', 'Service rate (₹)', 'Source sheet', 'Row', 'Single quoted rate'];
+const RATE_HEADERS = ['Description', 'Heading above it in the BOQ', 'UOM', 'Supply rate (₹)', 'Service rate (₹)', 'Source sheet', 'Row', 'Single quoted rate', 'Category'];
 
 /** Whether this account may use the price database. */
 function ratesAllowed_(user) {
@@ -259,13 +272,22 @@ function ratesAllowed_(user) {
 function getRates_(user) {
   const props = PropertiesService.getScriptProperties();
   const s = SpreadsheetApp.getActive().getSheetByName(RATES);
-  if (!s || s.getLastRow() < 2 || !ratesAllowed_(user)) return { ok: true, rates: null };
+  const mine = userPrices_(user.uid);
+  const counts = {};
+  mine.forEach(function (p) { counts[p.category] = (counts[p.category] || 0) + 1; });
+  const extra = { mine: mine.map(function (p) { return { item: p.material, unit: p.unit, supply: p.price, brand: p.brand, category: p.category }; }), developer: isDeveloper_(user) };
+  if (!s || s.getLastRow() < 2 || !ratesAllowed_(user)) return Object.assign({ ok: true, rates: null, counts: counts }, extra);
   const rows = s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues();
+  rows.forEach(function (v) { const c = category_(v[8]) || 'Others'; counts[c] = (counts[c] || 0) + 1; });
   return {
     ok: true,
+    counts: counts,
+    mine: extra.mine,
+    developer: extra.developer,
     uplift: Number(props.getProperty('RATES_UPLIFT') || 0),
     updated: props.getProperty('RATES_UPDATED') || '',
-    file: props.getProperty('RATES_FILE') || '',
+    // The Drive copy of the uploaded workbook is shown to the developer only.
+    file: extra.developer ? props.getProperty('RATES_FILE') || '' : '',
     rates: rows.map(function (v) {
       return { item: String(v[0]), context: String(v[1]), unit: String(v[2]), supply: v[3] === '' ? null : Number(v[3]), service: v[4] === '' ? null : Number(v[4]), sheet: String(v[5]), row: Number(v[6]) || 0, single: v[7] === true || v[7] === 'Yes' };
     }),
@@ -297,7 +319,7 @@ function saveRates_(user, body) {
     if (!s) s = book.insertSheet(RATES);
     s.clear();
     const values = rates.map(function (r) {
-      return [text_(r.item, 2000), text_(r.context, 1000), text_(r.unit, 40), money_(r.supply), money_(r.service), text_(r.sheet, 120), Number(r.row) || '', r.single ? 'Yes' : 'No'];
+      return [text_(r.item, 2000), text_(r.context, 1000), text_(r.unit, 40), money_(r.supply), money_(r.service), text_(r.sheet, 120), Number(r.row) || '', r.single ? 'Yes' : 'No', category_(r.category) || 'Electrical'];
     });
     s.getRange(1, 1, 1, RATE_HEADERS.length).setValues([RATE_HEADERS]).setFontWeight('bold');
     s.getRange(2, 1, values.length, RATE_HEADERS.length).setValues(values);
@@ -318,6 +340,194 @@ function saveRates_(user, body) {
     const updated = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM yyyy');
     props.setProperties({ RATES_OWNER: owner || user.uid, RATES_UPLIFT: String(Number(body.uplift) || 0), RATES_UPDATED: updated, RATES_FILE: file || props.getProperty('RATES_FILE') || '' });
     return { ok: true, count: values.length, updated: updated, file: file };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ---- Prices added on the website ("Add to your prices"), one store per account ----
+const PRICES = 'User prices';
+const PRICE_HEADERS = ['User ID', 'Material', 'Unit', 'Price (₹, excl. GST)', 'Brand', 'Category', 'Added', 'Source file', 'Row ID'];
+const CATEGORIES = ['Electrical', 'Mechanical', 'HVAC', 'CCTV', 'Fire system', 'PA System', 'Others'];
+
+/** The category as written in CATEGORIES, or '' when it is not one of them. */
+function category_(v) {
+  const t = String(v == null ? '' : v).trim().toLowerCase();
+  for (let i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].toLowerCase() === t) return CATEGORIES[i];
+  return '';
+}
+
+/**
+ * The developer can see and change every price. Decided here, never by the
+ * website: an account listed in the DEVELOPER_UIDS script property (comma
+ * separated), the account that owns the price database (RATES_OWNER), or the
+ * account registered with the email of the Google account that runs this
+ * script (Firebase keeps one account per email).
+ */
+function isDeveloper_(user) {
+  const props = PropertiesService.getScriptProperties();
+  const uids = String(props.getProperty('DEVELOPER_UIDS') || '').split(',').map(function (v) { return v.trim(); }).filter(String);
+  if (uids.indexOf(user.uid) >= 0) return true;
+  if (props.getProperty('RATES_OWNER') === user.uid) return true;
+  const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  return !!me && !!user.email && user.email.toLowerCase() === me;
+}
+
+function pricesSheet_() {
+  const book = SpreadsheetApp.getActive();
+  let s = book.getSheetByName(PRICES);
+  if (!s) {
+    s = book.insertSheet(PRICES);
+    s.getRange(1, 1, 1, PRICE_HEADERS.length).setValues([PRICE_HEADERS]).setFontWeight('bold');
+    s.setFrozenRows(1);
+  }
+  return s;
+}
+
+function priceRows_() {
+  const s = pricesSheet_();
+  if (s.getLastRow() < 2) return [];
+  return s.getRange(2, 1, s.getLastRow() - 1, PRICE_HEADERS.length).getValues().map(function (v, i) {
+    return { sheetRow: i + 2, uid: String(v[0]), material: String(v[1]), unit: String(v[2]), price: Number(v[3]) || 0, brand: String(v[4]), category: category_(v[5]) || 'Others', added: v[6] ? String(v[6]) : '', file: String(v[7]), id: String(v[8]) };
+  });
+}
+
+function userPrices_(uid) {
+  return priceRows_().filter(function (p) { return p.uid === uid && p.price > 0; });
+}
+
+function priceKey_(material, unit, brand) {
+  return [material, unit, brand].map(function (v) { return String(v || '').trim().toLowerCase().replace(/\s+/g, ' '); }).join('|');
+}
+
+/** One price from the website, checked; null when it cannot be stored. */
+function priceRow_(r) {
+  const material = text_(r && r.material, 500);
+  const price = money_(r && r.price);
+  const category = category_(r && r.category);
+  if (!material || price === '' || !category) return null;
+  return { material: material, unit: text_(r.unit, 40), price: price, brand: text_(r.brand, 120), category: category, file: text_(r.file, 200) };
+}
+
+/**
+ * Adds prices to the caller's own store. mode 'replace': a price with the
+ * same material, unit and brand as one already stored takes its place;
+ * 'keep': both are kept. Nothing is sent back but the counts.
+ */
+function addPrices_(user, body) {
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  if (!rows.length || rows.length > 20000) return { ok: false, error: 'Send between 1 and 20000 prices at a time.' };
+  const clean = rows.map(priceRow_);
+  const bad = clean.filter(function (r) { return !r; }).length;
+  if (bad) return { ok: false, error: bad + ' price(s) have no material name, no price above 0 or an unknown category.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const s = pricesSheet_();
+    let replaced = 0;
+    if (body.mode === 'replace') {
+      const keys = {};
+      clean.forEach(function (r) { keys[priceKey_(r.material, r.unit, r.brand)] = true; });
+      const gone = priceRows_().filter(function (p) { return p.uid === user.uid && keys[priceKey_(p.material, p.unit, p.brand)]; });
+      for (let i = gone.length - 1; i >= 0; i--) s.deleteRow(gone[i].sheetRow);
+      replaced = gone.length;
+    }
+    const now = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HH:mm');
+    const values = clean.map(function (r) { return [user.uid, r.material, r.unit, r.price, r.brand, r.category, now, r.file, Utilities.getUuid()]; });
+    s.getRange(s.getLastRow() + 1, 1, values.length, PRICE_HEADERS.length).setValues(values);
+    return { ok: true, added: values.length, replaced: replaced };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Developer only: every account with its name and how many prices it has. */
+function devUsers_(user) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const counts = {};
+  priceRows_().forEach(function (p) { counts[p.uid] = (counts[p.uid] || 0) + 1; });
+  const users = [];
+  const s = sheet_();
+  if (s.getLastRow() >= 2) {
+    s.getRange(2, 1, s.getLastRow() - 1, HEADERS.length).getValues().forEach(function (v) {
+      const uid = String(v[0]);
+      if (uid) users.push({ uid: uid, name: (String(v[1]) + ' ' + String(v[2])).trim(), email: String(v[6]), count: counts[uid] || 0 });
+    });
+  }
+  Object.keys(counts).forEach(function (uid) {
+    if (!users.some(function (u) { return u.uid === uid; })) users.push({ uid: uid, name: '', email: '', count: counts[uid] });
+  });
+  const main = SpreadsheetApp.getActive().getSheetByName(RATES);
+  return { ok: true, users: users, mainCount: main ? Math.max(0, main.getLastRow() - 1) : 0 };
+}
+
+/** Developer only: one account's prices (target uid), or the main price database (target 'main'). */
+function devPrices_(user, body) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const target = String(body.target || '');
+  if (target === 'main') {
+    const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+    if (!s || s.getLastRow() < 2) return { ok: true, prices: [] };
+    return { ok: true, prices: s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues().map(function (v, i) {
+      return { id: 'row:' + (i + 2) + ':' + String(v[0]).slice(0, 40), material: String(v[0]), unit: String(v[2]), price: v[3] === '' ? null : Number(v[3]), brand: '', category: category_(v[8]) || 'Others', service: v[4] === '' ? null : Number(v[4]), context: String(v[1]) };
+    }) };
+  }
+  return { ok: true, prices: priceRows_().filter(function (p) { return p.uid === target; }).map(function (p) {
+    return { id: p.id, material: p.material, unit: p.unit, price: p.price, brand: p.brand, category: p.category, added: p.added, file: p.file };
+  }) };
+}
+
+/** Finds a main-database row from its id ('row:<n>:<start of text>'), checking the text still matches. */
+function mainRow_(id) {
+  const m = /^row:(\d+):([\s\S]*)$/.exec(String(id));
+  const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+  if (!m || !s || Number(m[1]) > s.getLastRow()) return 0;
+  return String(s.getRange(Number(m[1]), 1).getValue()).slice(0, 40) === m[2] ? Number(m[1]) : 0;
+}
+
+function devUpdatePrice_(user, body) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const r = priceRow_(body.price || {});
+  if (!r) return { ok: false, error: 'The price needs a material name, a price above 0 and a category.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (body.target === 'main') {
+      const n = mainRow_(body.id);
+      if (!n) return { ok: false, error: 'That line has changed since the list was loaded. Reload and try again.' };
+      const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+      s.getRange(n, 1).setValue(r.material);
+      s.getRange(n, 3, 1, 2).setValues([[r.unit, r.price]]);
+      s.getRange(n, 9).setValue(r.category);
+      return { ok: true };
+    }
+    const p = priceRows_().filter(function (x) { return x.id === String(body.id) && x.uid === String(body.target); })[0];
+    if (!p) return { ok: false, error: 'That price is no longer there. Reload the list.' };
+    pricesSheet_().getRange(p.sheetRow, 2, 1, 5).setValues([[r.material, r.unit, r.price, r.brand, r.category]]);
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function devDeletePrices_(user, body) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const ids = (Array.isArray(body.ids) ? body.ids : []).map(String);
+  if (!ids.length) return { ok: false, error: 'Nothing to delete.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    let rows;
+    let s;
+    if (body.target === 'main') {
+      s = SpreadsheetApp.getActive().getSheetByName(RATES);
+      rows = ids.map(mainRow_).filter(Boolean);
+    } else {
+      s = pricesSheet_();
+      rows = priceRows_().filter(function (p) { return p.uid === String(body.target) && ids.indexOf(p.id) >= 0; }).map(function (p) { return p.sheetRow; });
+    }
+    rows.sort(function (a, b) { return b - a; }).forEach(function (n) { s.deleteRow(n); });
+    return { ok: true, deleted: rows.length };
   } finally {
     lock.releaseLock();
   }
