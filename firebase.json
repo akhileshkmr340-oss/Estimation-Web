@@ -91,7 +91,7 @@
           ]
         },
         {
-          "source": "assets/fonts/Roboto-*.ttf",
+          "source": "assets/fonts/@(Roboto|Manrope)-*.ttf",
           "headers": [
             {
               "key": "Cache-Control",
