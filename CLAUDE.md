@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-This repo is the **published website**, https://estimation-6fa32.web.app (Firebase Hosting). Every push to `main` is published by the "Deploy to Firebase Hosting" GitHub Action; "Check the website" and "Load time" run after it. GitHub Pages is off: never push `gh-pages`, and never give the github.io address. The repo holds the output of `flutter build web`, not the Dart source. Do not hand-edit compiled files (`main.dart.v-*.js`, `worker/extract.js`, `flutter*.js`, `ck-*/`, `assets/`): change the source, rebuild, and copy the build output over the repo root.
+This repo is the **published website** Arzimate, https://arzimate.web.app (Firebase Hosting site `arzimate`; the old https://estimation-6fa32.web.app forwards there from `old-address/`). Every push to `main` is published by the "Deploy to Firebase Hosting" GitHub Action; "Check the website" and "Load time" run after it. GitHub Pages is off: never push `gh-pages`, and never give the github.io address. The repo holds the output of `flutter build web`, not the Dart source. Do not hand-edit compiled files (`main.dart.v-*.js`, `worker/extract.js`, `flutter*.js`, `ck-*/`, `assets/`): change the source, rebuild, and copy the build output over the repo root.
 
-Deploy (the build is fingerprinted by `tool/fingerprint.py`): `git rm` the old `*.v-*.js` files and `assets/**/*.v-*` fonts, copy the new `*.v-*.js`, `index.html`, `flutter_bootstrap.js`, `agent-button.js`, `agent/`, `ck-*/` and the whole `build/web/assets` folder, then push `main`. Never copy `main.dart.js`. Keep `firebase.json` (its hosting ignore list must keep `.git/**`, `**/.git/**` and `.github/**`, or the repository is published) and the workflows.
+Deploy (the build is fingerprinted by `tool/fingerprint.py`): `git rm` the old `*.v-*.js` files and `assets/**/*.v-*` fonts, copy the new `*.v-*.js`, `index.html`, `flutter_bootstrap.js`, `agent-button.js`, `manifest.webmanifest`, `favicon.png`, the `agent/`, `brand/`, `icons/` and `core/` folders, `ck-*/` and the whole `build/web/assets` folder, then push `main`. Never copy `main.dart.js`. Before pushing, the built `index.html` must have the title `Arzimate: BOQ to Excel` and the `id="front"` front page (the deploy workflow stops otherwise). Keep `firebase.json`, `old-address/` (its hosting ignore list must keep `.git/**`, `**/.git/**` and `.github/**`, or the repository is published) and the workflows.
 
-Files here that are hand-written and also live in the source's `web/` folder: `index.html`, `estimation.js`, `auth.js`, `accounts-config.js`, `agent-button.js`, `agent/index.html`, `dwg/dwg-read.js`, `dwg/dwg-worker.js`, `ocr/ocr-worker.js`. `accounts/` (the Apps Script and its README) is copied from the source's `accounts/`. Keep both copies the same; a change made only here is lost on the next rebuild.
+Files here that are hand-written and also live in the source's `web/` folder: `index.html` (with the #front front page), `manifest.webmanifest`, `brand/`, `icons/`, `favicon.png`, `boq-files.v-*.js`, `core/`, `estimation.js`, `auth.js`, `accounts-config.js`, `agent-button.js`, `agent/index.html`, `dwg/dwg-read.js`, `dwg/dwg-worker.js`, `ocr/ocr-worker.js`. `accounts/` (the Apps Script and its README) is copied from the source's `accounts/`. Keep both copies the same; a change made only here is lost on the next rebuild.
 
 Features a rebuild must keep (all in the source since 2026-11-02):
 - Idle logout after **60 minutes** without use (`lib/ui/idle_logout.dart`, message in `lib/ui/auth_screen.dart`). "Check the website" fails the bundle check if the live message is not 60 minutes.
@@ -16,6 +16,10 @@ Features a rebuild must keep (all in the source since 2026-11-02):
 - The **AI Pricing** ribbon tab (logged-in users; `lib/ui/shell.dart`) and **Compute with AI Agent** on the project page ribbon and download step (`lib/ui/project_screen.dart`), which builds the Get Excel workbook in memory and calls `window.estimationAgent.price` through `lib/services/ai_agent.dart`.
 
 The website is a browser version of the Estimation Android app (repo `akhileshkmr340-oss/estimation-app`). It turns drawings and documents into a bill of quantities in Excel (S. No., Description, Ratings, UOM, Make, Quantity). Everything runs in the browser: files and outputs are never uploaded or stored.
+
+## Branches
+
+- `main` is live. `premium-ui` holds a premium redesign build for review only (source in `/mnt/project-files/estimation-web-premium`); it is not deployed.
 
 ## Source and build
 
