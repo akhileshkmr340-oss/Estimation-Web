@@ -83,6 +83,7 @@
       <li>Panels and DBs drawn in the SLDs you add are built up from their feeders; others are priced from your past panel offers, with a CHECK note.</li>
       <li>Everything else is broken into parts (main item, accessories, supports, tagging, installation) and priced part by part.</li>
       <li>It runs on the server: you can close this panel and come back; the job appears below.</li>
+      <li>The files you send go to the agent's server to be priced. Only if “Save project files to my Google Drive” is on in the website's Settings, the BOQs you send and the priced workbooks are also saved in your own Google Drive (Arzimate folder).</li>
     </ul>
   </section>
 
@@ -274,7 +275,8 @@
   // Starts one job per BOQ file, as the form and the app both do: each file is priced on its
   // own and comes back as its own workbook, never merged with the others. The drawings are
   // sent once and read for every BOQ. `files`: [{ name, size, data() -> bytes as base64 }].
-  async function start(files) {
+  async function start(files, project) {
+    const at = Date.now(); // one start time for the files sent together (Drive file names)
     $('startError').textContent = '';
     const bad = files.map((f) => !/\.xlsx$/i.test(f.name)
       ? `${f.name}: choose an Excel .xlsx file (save .xls files as .xlsx first).`
@@ -290,7 +292,13 @@
       for (const [i, f] of files.entries()) {
         $('startBtn').textContent = files.length > 1 ? `Uploading BOQ ${i + 1} of ${files.length}…` : 'Uploading the BOQ…';
         try {
-          ({ jobId: last } = await call('agentStart', { fileName: f.name, data: await f.data(), margin, drawings, panelSpec: $('panelSpec').value }));
+          const data = await f.data();
+          ({ jobId: last } = await call('agentStart', { fileName: f.name, data, margin, drawings, panelSpec: $('panelSpec').value }));
+          // To the website around this panel: with Google Drive saving on, it files this BOQ and,
+          // when the job is done, the priced workbook in the user's own Drive.
+          if (window.parent !== window) {
+            window.parent.postMessage({ type: 'estimation-agent-started', jobId: last, at, project, fileName: f.name, data }, location.origin);
+          }
         } catch (e) {
           failed.push(`${f.name}: ${message(e)}`);
         }
@@ -328,7 +336,7 @@
       .map((f) => ({ name: f.fileName, size: Math.floor((f.data.length * 3) / 4), data: async () => f.data }));
     if (!files.length) return;
     await signedIn;
-    start(files);
+    start(files, typeof ev.data.project === 'string' ? ev.data.project : undefined);
   });
 
   // ---- Watch a job ----

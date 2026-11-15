@@ -81,19 +81,88 @@
   // a BOQ workbook the app has just built (a Uint8Array of .xlsx bytes). When that BOQ merges
   // several client .xlsx files, each file goes as its own job instead (boq-files.js), so each
   // comes back as its own workbook, kept as the client sent it.
+  // The project page that is open (set by the app), for filing jobs in Google Drive.
+  let project = null;
   window.estimationAgent = {
     open() { open(); },
-    async price(fileName, bytes) {
+    setProject(name) { project = name ? String(name) : null; },
+    async price(fileName, bytes, forProject) {
+      const proj = forProject ? String(forProject) : project;
       const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
       let files = null;
       try { files = window.estimationBoqFiles ? await window.estimationBoqFiles.agentFiles(u8) : null; } catch (_) { files = null; }
       pending = files && files.length
-        ? { type: 'estimation-agent-price', files: files.map((f) => ({ fileName: f.name, data: toBase64(f.bytes) })) }
-        : { type: 'estimation-agent-price', fileName: String(fileName || 'BOQ.xlsx'), data: toBase64(u8) };
+        ? { type: 'estimation-agent-price', project: proj, files: files.map((f) => ({ fileName: f.name, data: toBase64(f.bytes) })) }
+        : { type: 'estimation-agent-price', project: proj, fileName: String(fileName || 'BOQ.xlsx'), data: toBase64(u8) };
       open();
       send();
     },
   };
+  // ---- Google Drive filing of AI Agent jobs (only while "Save project files to my Google
+  // Drive" is on in Settings; the app's window.arzimateDrive does the saving) ----
+  // The agent panel reports each job it starts; its BOQ is filed at once and the job is kept
+  // here until its priced workbook can be filed too:
+  //   Arzimate/<project>/AI Agent/<yyyy-mm-dd hh-mm> <file>, or Arzimate/AI Agent jobs/... .
+  const FILED = 'arzimate.agentDrive';
+  function filed() { try { return JSON.parse(localStorage.getItem(FILED) || '{}') || {}; } catch (_) { return {}; } }
+  function setFiled(m) { try { localStorage.setItem(FILED, JSON.stringify(m)); } catch (_) {} }
+  const drive = () => (window.arzimateDrive && window.arzimateDrive.on() ? window.arzimateDrive : null);
+  window.addEventListener('message', (ev) => {
+    // Only this site's own agent page, in this panel.
+    if (ev.origin !== location.origin || !frame || ev.source !== frame.contentWindow) return;
+    const m = ev.data;
+    if (!m || m.type !== 'estimation-agent-started' || typeof m.jobId !== 'string') return;
+    const d = drive();
+    if (!d) return;
+    const proj = m.project === undefined ? project : (m.project ? String(m.project) : null);
+    const at = Number(m.at) || Date.now();
+    const all = filed();
+    all[m.jobId] = { project: proj, at };
+    setFiled(all);
+    if (typeof m.fileName === 'string' && typeof m.data === 'string') {
+      d.saveAgent(proj, at, m.fileName, m.data).catch((e) => console.warn('AI agent BOQ not saved to Drive:', e));
+    }
+    check(); // follow the job from now on, so its workbook is filed soon after it is done
+  });
+  const filing = {};
+  async function fileResults(jobs) {
+    const all = filed();
+    const ids = Object.keys(all);
+    if (!ids.length) return;
+    let changed = false;
+    for (const id of ids) {
+      const job = jobs.find((j) => j.jobId === id);
+      const old = Date.now() - (all[id].at || 0) > 7 * 86400000;
+      if ((job && ['failed', 'cancelled'].includes(job.status)) || (!job && old)) { delete all[id]; changed = true; continue; }
+      const d = drive();
+      if (!job || job.status !== 'done' || !d || filing[id]) continue;
+      filing[id] = true;
+      try {
+        const current = window.firebase.auth().currentUser;
+        const res = await fetch(FUNCTIONS + 'agentResult', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await current.getIdToken()) },
+          body: JSON.stringify({ data: { jobId: id } }),
+        });
+        const r = (await res.json()).result || {};
+        if (!r.data) throw new Error('no workbook');
+        await d.saveAgent(all[id].project, all[id].at, String(r.fileName || 'Priced BOQ.xlsx'), r.data);
+        const now = filed();
+        delete now[id];
+        setFiled(now);
+      } catch (e) {
+        console.warn('AI agent workbook not saved to Drive yet:', e); // tried again on the next check
+      } finally {
+        delete filing[id];
+      }
+    }
+    if (changed) {
+      const now = filed();
+      for (const id of ids) if (!all[id]) delete now[id];
+      setFiled(now);
+    }
+  }
+
   function close() {
     panel.style.display = 'none';
     check(); // show the latest progress on the button
@@ -137,6 +206,7 @@
       timer = setTimeout(check, 60000);
       return;
     }
+    fileResults(jobs);
     const running = jobs.find((j) => !['done', 'failed', 'cancelled'].includes(j.status));
     if (running) {
       const pct = running.total ? Math.round((running.done / running.total) * 95) + 3 : 2;

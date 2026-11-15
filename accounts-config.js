@@ -6,6 +6,10 @@
 //    that keeps the profiles in a Google Sheet.
 // While either is empty, accounts are off and the website works without
 // logging in.
+//  googleClientId: OAuth web client ID (Google Cloud console > APIs &
+//    Services > Credentials) for "Save project files to my Google Drive"
+//    (web/drive-auth.js, drive.file scope). Public by design. While it is
+//    empty, that setting stays off and greyed out.
 window.estimationAccounts = {
   firebase: {
     apiKey: 'AIzaSyDn181WEUUq6Dw9F0-2OgXzm0vbe6cfLkI',
@@ -15,5 +19,6 @@ window.estimationAccounts = {
     messagingSenderId: '532959505940',
     appId: '1:532959505940:web:bbca06110ffa1ed628c101',
   },
+  googleClientId: '',
   profileScript: 'https://script.google.com/macros/s/AKfycby_oL7V9tj9bHlM1EHNwuPkJCP-WUpnEWdIIwUmjx1FY37fgHKfNEsKNnuyQusBRnEB/exec',
 };
