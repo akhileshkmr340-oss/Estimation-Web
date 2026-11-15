@@ -19,7 +19,7 @@ The website is a browser version of the Estimation Android app (repo `akhileshkm
 
 ## Branches
 
-- `main` is live and carries the premium redesign since 47eada2 (2026-11-15). `premium-ui` is the earlier review copy, left as history; build only from `/mnt/project-files/estimation-web`.
+- `main` is live and carries the Arzimate v2 design (sidebar shell, Ctrl+K, dashboard, /projects, project stepper) since 03f1dd2 (2026-11-15). `premium-ui` and `premium-v2` are earlier review copies, left as history; build only from `/mnt/project-files/estimation-web`.
 
 ## Source and build
 
