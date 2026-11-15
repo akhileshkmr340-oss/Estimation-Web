@@ -31,6 +31,11 @@ jobs:
           echo "::notice::Start-up download (gzip): app $((app / 1024)) KB, renderer $((ck / 1024)) KB, total $((total / 1024)) KB (budget 3500 KB)"
           if [ "$(ls main.dart.v-*.js | wc -l)" != 1 ] || ! grep -q "$(ls main.dart.v-*.js)" index.html flutter_bootstrap.js; then echo "::error::index.html and flutter_bootstrap.js must name the one main.dart.v-*.js file."; exit 1; fi
           if [ "$total" -gt 3584000 ]; then echo "::error::The start-up download is over its budget; the website would load slowly."; exit 1; fi
+      - name: Arzimate page is intact
+        # A rebuild from an out-of-date source would drop the Arzimate name and front page.
+        run: |
+          grep -q '<title>Arzimate: BOQ to Excel</title>' index.html || { echo "::error::index.html is not titled 'Arzimate: BOQ to Excel'."; exit 1; }
+          grep -q 'id="front"' index.html || { echo "::error::index.html has no #front front page."; exit 1; }
       - uses: FirebaseExtended/action-hosting-deploy@v0
         if: steps.key.outputs.skip != '1'
         with:

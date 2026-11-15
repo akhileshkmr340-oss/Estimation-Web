@@ -24,6 +24,9 @@ jobs:
       - name: AI agent, 60-minute logout, no .git published
         run: |
           site=https://arzimate.web.app
+          page=$(curl -s "$site/")
+          echo "$page" | grep -q '<title>Arzimate: BOQ to Excel</title>' && echo "::notice::Title: Arzimate: BOQ to Excel" || echo "::error::The live page is not titled 'Arzimate: BOQ to Excel'"
+          echo "$page" | grep -q 'id="front"' && echo "::notice::Front page present" || echo "::error::The live page has no #front front page"
           curl -s "$site/" | grep -q 'agent-button.js' && echo "::notice::index.html loads agent-button.js" || echo "::error::index.html does not load agent-button.js"
           for f in agent-button.js agent/index.html; do
             code=$(curl -s -o /tmp/f -w '%{http_code}' "$site/$f"); cmp -s /tmp/f "$f" && same="same as repo" || same="DIFFERENT from repo"
