@@ -19,7 +19,7 @@ The website is a browser version of the Estimation Android app (repo `akhileshkm
 
 ## Branches
 
-- `main` is live. `premium-ui` holds a premium redesign build for review only (source in `/mnt/project-files/estimation-web-premium`); it is not deployed.
+- `main` is live and carries the premium redesign since 47eada2 (2026-11-15). `premium-ui` is the earlier review copy, left as history; build only from `/mnt/project-files/estimation-web`.
 
 ## Source and build
 
