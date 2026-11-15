@@ -20,7 +20,7 @@
 <meta name="description" content="Arzimate turns drawings, BOQs and specifications into a clean, priced bill of quantities in Excel, right in your browser.">
 <meta property="og:description" content="Arzimate turns drawings, BOQs and specifications into a clean, priced bill of quantities in Excel, right in your browser.">
 <!-- Start the two big downloads (the app and its renderer) at once, not after the other scripts. -->
-<link rel="preload" href="main.dart.v-9c52048977.js" as="script">
+<link rel="preload" href="main.dart.v-6a03ab8bef.js" as="script">
 <script>
   (function () {
     var l = document.createElement('link');
@@ -30,6 +30,9 @@
     document.head.appendChild(l);
   })();
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
 <style>
   :root { --bg: #f7f9fc; --fg: #1a1c1e; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #111418; --fg: #e2e2e6; color-scheme: dark } }
@@ -50,12 +53,344 @@
   <img class="on-dark" src="brand/arzimate-logo-on-dark.png" width="808" height="270" alt="Arzimate">
   <span>Loading…</span>
 </div>
+<!-- ===== Front page (Arzimate). Shown to visitors; the app loads behind it. Members who
+     have logged in on this browser go straight to the app; "?home" shows it again. ===== -->
+<style>
+  #front { --navy: #15133a; --navy2: #1f1d4d; --indigo: #2b2870; --brand: #4c3fc4; --brand-hi: #6a5ae0;
+    --violet: #a594ff; --teal: #3fd1bd; --blue: #6aa8f0; --coral: #f09a80; --gold: #f2b33d;
+    --page: #f6f6fb; --card: #ffffff; --ink: #1b1a33; --muted: #5b5b78; --line: #e4e3f0;
+    position: fixed; inset: 0; z-index: 2147482000; overflow-y: auto; overflow-x: hidden; background: var(--page); color: var(--ink);
+    font: 16px/1.6 Manrope, "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front { --page: #0f0e26; --card: #1a1838; --ink: #ecebff; --muted: #a9a7c9; --line: #2c2a55; } }
+  :root[data-theme="dark"] #front { --page: #0f0e26; --card: #1a1838; --ink: #ecebff; --muted: #a9a7c9; --line: #2c2a55; }
+  #front[hidden] { display: none; }
+  #front * { box-sizing: border-box; }
+  #front a { color: inherit; }
+  #front .wrap { width: min(1160px, 100% - 32px); margin: 0 auto; }
+  #front .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 999px; font: 700 15px/1 inherit;
+    font-family: inherit; border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: transform .15s, box-shadow .15s, background .15s; }
+  #front .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  #front .btn-gold { background: linear-gradient(180deg, #f7c65a, #f2b33d); color: #241a00; box-shadow: 0 8px 24px rgba(242,179,61,.28); }
+  #front .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(242,179,61,.38); }
+  #front .btn-ghost { background: rgba(255,255,255,.06); color: #fff; border-color: rgba(255,255,255,.22); }
+  #front .btn-ghost:hover { background: rgba(255,255,255,.12); }
+  #front .btn-brand { background: var(--brand); color: #fff; }
+  #front .btn-brand:hover { background: var(--brand-hi); }
+
+  /* Top bar */
+  #front .top { position: sticky; top: 0; z-index: 5; backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px);
+    background: rgba(21,19,58,.78); border-bottom: 1px solid rgba(255,255,255,.08); }
+  #front .top .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; gap: 16px; }
+  #front .top img { height: 34px; width: auto; display: block; }
+  #front .top nav { display: flex; align-items: center; gap: 26px; }
+  #front .top nav a { color: rgba(255,255,255,.78); text-decoration: none; font-weight: 600; font-size: 15px; }
+  #front .top nav a:hover { color: #fff; }
+  #front .top .login { padding: 10px 18px; font-size: 14px; }
+
+  /* Hero */
+  #front .hero { position: relative; color: #fff; background:
+      radial-gradient(900px 500px at 85% -10%, rgba(165,148,255,.35), transparent 60%),
+      radial-gradient(700px 480px at -10% 110%, rgba(63,209,189,.18), transparent 60%),
+      linear-gradient(160deg, #2b2870 0%, #1f1d4d 45%, #15133a 100%);
+    padding: 72px 0 96px; overflow: hidden; }
+  #front .hero .grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 56px; align-items: center; }
+  #front .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    letter-spacing: .02em; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: #e9e6ff; }
+  #front .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px rgba(63,209,189,.2); }
+  #front h1 { font-size: clamp(38px, 5.6vw, 64px); line-height: 1.04; letter-spacing: -.025em; margin: 20px 0 18px; font-weight: 800; }
+  #front h1 span { background: linear-gradient(90deg, #c9bfff, #8fe3d6 60%, #ffd98a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #front .lede { font-size: clamp(17px, 1.6vw, 19px); color: rgba(236,234,255,.82); max-width: 560px; margin: 0 0 30px; }
+  #front .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  #front .ticks { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 26px 0 0; padding: 0; list-style: none; font-size: 14px; color: rgba(236,234,255,.72); }
+  #front .ticks li::before { content: "✓"; color: var(--teal); font-weight: 800; margin-right: 7px; }
+
+  /* Product preview */
+  #front .shot { position: relative; border-radius: 18px; background: rgba(255,255,255,.96); color: #1b1a33; box-shadow: 0 40px 80px rgba(5,4,25,.55), 0 0 0 1px rgba(255,255,255,.2);
+    overflow: hidden; transform: perspective(1400px) rotateY(-6deg) rotateX(2deg); }
+  #front .shot .bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; background: #f1f0f8; border-bottom: 1px solid #e4e3f0; font-size: 12px; color: #5b5b78; }
+  #front .shot .bar b { width: 10px; height: 10px; border-radius: 50%; background: #e4e3f0; }
+  #front .shot .bar span { margin-left: 8px; font-weight: 700; }
+  #front .shot table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  #front .shot th { text-align: left; font-weight: 700; color: #5b5b78; background: #fafaff; padding: 9px 12px; border-bottom: 1px solid #ecebf5; white-space: nowrap; }
+  #front .shot td { padding: 9px 12px; border-bottom: 1px solid #f0eff7; vertical-align: top; }
+  #front .shot td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #front .shot th.n { text-align: right; }
+  #front .shot .new { background: linear-gradient(90deg, rgba(165,148,255,.10), rgba(165,148,255,.18)); }
+  #front .shot .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; vertical-align: 1px; }
+  #front .tag.db { background: #e6f8f5; color: #0d7a6b; } #front .tag.web { background: #e7f0fd; color: #2459a6; } #front .tag.est { background: #fdeee9; color: #a5492e; }
+  #front .shot tfoot td { font-weight: 800; background: #faf9ff; border-bottom: 0; }
+  #front .shot .note { padding: 9px 12px; font-size: 11.5px; color: #77779a; background: #faf9ff; }
+  #front .float { position: absolute; right: -14px; top: -24px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px;
+    background: #fff; color: #1b1a33; box-shadow: 0 18px 40px rgba(5,4,25,.35); font-size: 13px; font-weight: 700; }
+  #front .float small { display: block; font-weight: 600; color: #6b6b88; }
+  #front .float .dot { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #4c3fc4, #7960dd); color: #fff; }
+
+  /* Strip of inputs */
+  #front .strip { margin-top: -38px; position: relative; z-index: 2; }
+  #front .strip .box { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 14px; padding: 18px 22px; border-radius: 16px;
+    background: var(--card); border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(20,18,60,.08); font-size: 14px; color: var(--muted); }
+  #front .strip .chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-weight: 700; color: var(--ink); font-size: 13px; }
+
+  /* Sections */
+  #front section.sec { padding: 92px 0 0; }
+  #front .kicker { font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front .kicker { color: var(--violet); } }
+  :root[data-theme="dark"] #front .kicker { color: var(--violet); }
+  #front h2 { font-size: clamp(28px, 3.6vw, 42px); line-height: 1.12; letter-spacing: -.02em; margin: 10px 0 14px; font-weight: 800; }
+  #front .sub { color: var(--muted); font-size: 17px; max-width: 640px; margin: 0; }
+  #front .head { margin-bottom: 40px; }
+  #front .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  #front .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px; transition: transform .2s, box-shadow .2s; }
+  #front .card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(20,18,60,.10); }
+  #front .card h3 { font-size: 18px; margin: 16px 0 8px; letter-spacing: -.01em; }
+  #front .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  #front .ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: #fff; }
+  #front .ic svg { width: 24px; height: 24px; }
+  #front .c1 { background: linear-gradient(135deg, #7960dd, #a594ff); } #front .c2 { background: linear-gradient(135deg, #18b5a3, #3fd1bd); }
+  #front .c3 { background: linear-gradient(135deg, #4a8fe0, #6aa8f0); } #front .c4 { background: linear-gradient(135deg, #e8846b, #f09a80); }
+  #front .c5 { background: linear-gradient(135deg, #2b2870, #4c3fc4); } #front .c6 { background: linear-gradient(135deg, #d9962a, #f2b33d); }
+
+  /* Steps */
+  #front .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: s; }
+  #front .step { position: relative; padding: 28px 26px 26px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
+  #front .step::before { counter-increment: s; content: counter(s); position: absolute; top: -16px; left: 24px; width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #4c3fc4, #7960dd); box-shadow: 0 6px 16px rgba(76,63,196,.35); }
+  #front .step h3 { margin: 8px 0 8px; font-size: 18px; }
+  #front .step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  /* AI agent band */
+  #front .band { margin-top: 92px; color: #fff; border-radius: 28px; padding: 54px; background:
+      radial-gradient(600px 300px at 100% 0%, rgba(242,179,61,.18), transparent 60%),
+      linear-gradient(150deg, #2b2870, #15133a); display: grid; grid-template-columns: 1.1fr 1fr; gap: 44px; align-items: center; }
+  #front .band h2 { color: #fff; }
+  #front .band .sub { color: rgba(236,234,255,.78); }
+  #front .band .kicker { color: var(--gold) !important; }
+  #front .team { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #front .team div { padding: 16px; border-radius: 14px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); font-size: 14px; color: rgba(236,234,255,.8); }
+  #front .team b { display: block; color: #fff; font-size: 15px; margin-bottom: 3px; }
+
+  /* Output promise */
+  #front .split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+  #front .list { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 14px; }
+  #front .list li { display: flex; gap: 12px; color: var(--muted); }
+  #front .list li b { color: var(--ink); }
+  #front .list li::before { content: ""; flex: none; width: 22px; height: 22px; margin-top: 2px; border-radius: 50%;
+    background: var(--teal) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat; }
+  #front .sheets { display: grid; gap: 12px; }
+  #front .sheet { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
+  #front .sheet .x { flex: none; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; background: #1d7a45; }
+  #front .sheet b { display: block; }
+  #front .sheet span { color: var(--muted); font-size: 14px; }
+
+  /* Final call */
+  #front .final { margin: 96px 0 0; text-align: center; padding: 64px 24px; border-radius: 28px; background: var(--card); border: 1px solid var(--line); }
+  #front .final .cta { justify-content: center; margin-top: 26px; }
+  #front footer { padding: 40px 0 46px; color: var(--muted); font-size: 14px; }
+  #front footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+  #front footer img { height: 26px; width: auto; display: block; }
+  #front .on-dark-only { display: none; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front .on-light-only { display: none; } :root:not([data-theme="light"]) #front .on-dark-only { display: block; } }
+  :root[data-theme="dark"] #front .on-light-only { display: none; }
+  :root[data-theme="dark"] #front .on-dark-only { display: block; }
+
+  @media (max-width: 960px) {
+    #front .hero .grid, #front .band, #front .split { grid-template-columns: 1fr; }
+    #front .shot { transform: none; }
+    #front .cards { grid-template-columns: 1fr 1fr; }
+    #front .band { padding: 36px 26px; }
+    #front .top nav a:not(.login) { display: none; }
+  }
+  @media (max-width: 640px) {
+    #front .hero { padding: 44px 0 80px; }
+    #front .cards, #front .steps, #front .team { grid-template-columns: 1fr; }
+    #front .shot .hide-s { display: none; }
+    #front .float { right: 8px; top: -28px; }
+    #front section.sec { padding-top: 70px; }
+    #front .steps { gap: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #front, #front * { scroll-behavior: auto !important; transition: none !important; } }
+</style>
+
+<div id="front" hidden>
+  <header class="top">
+    <div class="wrap">
+      <a href="#front-top" aria-label="Arzimate home"><img src="brand/arzimate-logo-on-dark.png" width="808" height="270" alt="Arzimate"></a>
+      <nav aria-label="Front page">
+        <a href="#front-how">How it works</a>
+        <a href="#front-agent">AI Pricing Agent</a>
+        <a href="#front-output">Your Excel</a>
+        <button type="button" class="btn btn-gold login" data-open-app>Log in</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero" id="front-top">
+    <div class="wrap grid">
+      <div>
+        <span class="eyebrow"><i></i>Estimation for electrical and building services</span>
+        <h1>Drawings in.<br><span>Priced BOQ out.</span></h1>
+        <p class="lede">Arzimate reads your drawings, BOQs and specifications, prices every line from your own rates and the market, and hands you a clean Excel offer with margin, transport and accessories built in.</p>
+        <div class="cta">
+          <button type="button" class="btn btn-gold" data-open-app>Start estimating
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <a class="btn btn-ghost" href="#front-how">See how it works</a>
+        </div>
+        <ul class="ticks">
+          <li>Your client's format kept</li>
+          <li>Every line priced</li>
+          <li>Prices in rupees</li>
+        </ul>
+      </div>
+      <div style="position:relative">
+        <div class="shot" role="img" aria-label="Example of a priced BOQ in Arzimate">
+          <div class="bar"><b></b><b></b><b></b><span>Electrical BOQ - priced.xlsx</span></div>
+          <table>
+            <thead><tr><th>S. No.</th><th>Description</th><th class="n hide-s">Qty</th><th class="n">Rate (₹)</th><th class="n hide-s">Amount (₹)</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>3C x 300 sq mm AL armoured cable</td><td class="n hide-s">250 m</td><td class="n new">1,105 <span class="tag db">DB</span></td><td class="n hide-s">2,76,250</td></tr>
+              <tr><td>2</td><td>630 A 4P MCCB incomer with MFM</td><td class="n hide-s">1 No</td><td class="n new">1,64,900 <span class="tag db">DB</span></td><td class="n hide-s">1,64,900</td></tr>
+              <tr><td>3</td><td>Cable tray, perforated, 300 mm</td><td class="n hide-s">120 m</td><td class="n new">845 <span class="tag web">Web</span></td><td class="n hide-s">1,01,400</td></tr>
+              <tr><td>4</td><td>LED flood light 150 W, IP66</td><td class="n hide-s">20 No</td><td class="n new">7,420 <span class="tag est">Est.</span></td><td class="n hide-s">1,48,400</td></tr>
+            </tbody>
+            <tfoot><tr><td></td><td>Total, margin and transport included</td><td class="hide-s"></td><td class="n"></td><td class="n hide-s">6,90,950</td></tr></tfoot>
+          </table>
+          <div class="note">Example rates for illustration. DB = your price database, Web = found online, Est. = estimate to check.</div>
+        </div>
+        <div class="float" aria-hidden="true"><span class="dot">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l2 5.2 5.2 2-5.2 2L12 17.4 10 12.2 4.8 10.2l5.2-2z" fill="currentColor"/></svg></span>
+          <span>Every S. No. priced<small>Rates, margin and totals filled in</small></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap strip">
+    <div class="box"><span>Works from</span>
+      <span class="chip">DWG</span><span class="chip">PDF</span><span class="chip">Excel BOQ</span><span class="chip">Word</span><span class="chip">Images</span><span class="chip">Single line diagrams</span></div>
+  </div>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="head"><div class="kicker">What it does</div>
+        <h2>An estimator's desk, in your browser</h2>
+        <p class="sub">From the enquiry to the offer: quantities, rates, checks and the Excel you send.</p></div>
+      <div class="cards">
+        <div class="card"><div class="ic c1"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4zm0 5l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+          <h3>Reads your drawings</h3><p>Legends, symbols per floor and single line diagrams become clean line items with quantities.</p></div>
+        <div class="card"><div class="ic c2"><svg viewBox="0 0 24 24" fill="none"><path d="M7 5h10M7 9h10M9 9c3 0 5 1.6 5 4s-2 4-5 4h-1l6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Prices every item</h3><p>Your own rates first, then market prices, with discount, margin, transport and accessories.</p></div>
+        <div class="card"><div class="ic c3"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <h3>Keeps the client's BOQ</h3><p>Sheets, merges and formats stay exactly as sent. Only the rate columns are added.</p></div>
+        <div class="card"><div class="ic c4"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6l8 6 8-6M4 6h16v12H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+          <h3>RFQs to suppliers</h3><p>Send requests for quotation to your vendors from the same project.</p></div>
+        <div class="card"><div class="ic c5"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4m0 10v4M3 12h4m10 0h4M6 6l2.5 2.5m7 7L18 18M6 18l2.5-2.5m7-7L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <h3>Many files at once</h3><p>Upload several BOQ files; each comes back as its own priced workbook.</p></div>
+        <div class="card"><div class="ic c6"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg></div>
+          <h3>Your files, your control</h3><p>The app reads drawings and Excel files in your browser. Only what you send to the AI Pricing Agent goes to its server.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="front-how">
+    <div class="wrap">
+      <div class="head"><div class="kicker">How it works</div><h2>Three steps to an offer</h2></div>
+      <div class="steps">
+        <div class="step"><h3>Upload</h3><p>Add the client's BOQ files, drawings or specifications to a project.</p></div>
+        <div class="step"><h3>Price</h3><p>Rates come from your price database, the market or the AI Pricing Agent, line by line.</p></div>
+        <div class="step"><h3>Send</h3><p>Download the priced Excel with summary and rate back-up, ready for your offer.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap" id="front-agent">
+    <div class="band">
+      <div><div class="kicker">AI Pricing Agent</div>
+        <h2>A 20-year estimator, with a team behind it</h2>
+        <p class="sub">The agent breaks every BOQ line into its parts, prices each one from your records and the market, and fills the rate of every S. No. It works in the background while you carry on.</p>
+        <div class="cta" style="margin-top:26px"><button type="button" class="btn btn-gold" data-open-app>Try the agent</button></div></div>
+      <div class="team">
+        <div><b>Quantity check</b>Missing and repeated quantities</div>
+        <div><b>Price check</b>Parts above their item, far-apart rates</div>
+        <div><b>Offer check</b>The biggest lines in the offer</div>
+        <div><b>Output check</b>A rate on every line</div>
+      </div>
+    </div>
+  </div>
+
+  <section class="sec" id="front-output">
+    <div class="wrap split">
+      <div><div class="kicker">Your Excel</div>
+        <h2>The workbook you send, ready to change</h2>
+        <ul class="list">
+          <li><span><b>Live formulas.</b> Change a rate, quantity or margin and every total follows.</span></li>
+          <li><span><b>Margin, transport and accessories</b> as their own columns, per line or for the whole offer.</span></li>
+          <li><span><b>Summary linked to the BOQ,</b> with the grand total.</span></li>
+          <li><span><b>Backup sheet</b> showing where every rate came from.</span></li>
+        </ul></div>
+      <div class="sheets" aria-hidden="true">
+        <div class="sheet"><span class="x">XLS</span><div><b>Client BOQ</b><span>As sent, with rates and amounts filled in</span></div></div>
+        <div class="sheet"><span class="x" style="background:#4c3fc4">Σ</span><div><b>Summary</b><span>Section totals and grand total</span></div></div>
+        <div class="sheet"><span class="x" style="background:#18b5a3">₹</span><div><b>Backup</b><span>Rate build-up and its source for every line</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="final">
+      <div class="kicker">Get started</div>
+      <h2>Price your next enquiry with Arzimate</h2>
+      <p class="sub" style="margin:0 auto">Create an account or log in to open your projects.</p>
+      <div class="cta"><button type="button" class="btn btn-brand" data-open-app>Create account or log in</button></div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <img class="on-light-only" src="brand/arzimate-logo-on-light.png" width="808" height="270" alt="Arzimate">
+      <img class="on-dark-only" src="brand/arzimate-logo-on-dark.png" width="808" height="270" alt="Arzimate">
+      <span>© <span id="front-year">2026</span> Arzimate · powered by Arzio</span>
+    </div>
+  </footer>
+</div>
+
 <script src="ocr/tesseract.min.js" defer></script>
 <script src="estimation.v-8a49267200.js"></script>
 <!-- One priced workbook per client BOQ file, next to the merged BOQ (loads the writer only when needed). -->
 <script src="boq-files.v-050ae0b299.js"></script>
 <script src="accounts-config.js"></script>
 <script src="auth.v-6138f3959d.js"></script>
+<script>
+  // Visitors see the front page; someone who has logged in on this browser goes straight to the app.
+  (function () {
+    var front = document.getElementById('front');
+    var KEY = 'arzimate_member';
+    var member = false;
+    try { member = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    var forced = /[?&]home\b/.test(location.search);
+    var y = document.getElementById('front-year'); if (y) y.textContent = new Date().getFullYear();
+    function openApp() { front.hidden = true; try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+    if (forced || !member) front.hidden = false;
+    Array.prototype.forEach.call(front.querySelectorAll('[data-open-app]'), function (b) { b.addEventListener('click', openApp); });
+    front.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href^="#front-"]');
+      if (!a) return;
+      e.preventDefault();
+      var t = document.getElementById(a.getAttribute('href').slice(1));
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    var wasIn = false;
+    if (window.estimationAuth && window.estimationAuth.configured()) {
+      window.estimationAuth.onChange(function (json) {
+        if (json) {
+          wasIn = true;
+          try { localStorage.setItem(KEY, '1'); } catch (e) {}
+          if (!forced) front.hidden = true;
+        } else if (wasIn) {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+        }
+      });
+    }
+  })();
+</script>
 <!-- The "AI Pricing Agent" button (logged-in users); the agent itself is agent/index.html. -->
 <script src="agent-button.js" defer></script>
 <script>
