@@ -1,0 +1,15 @@
+{
+  "name": "Arzimate",
+  "short_name": "Arzimate",
+  "description": "Turn drawings, BOQs and specifications into a clean, priced bill of quantities in Excel.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#1f1d4d",
+  "icons": [
+    { "src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
