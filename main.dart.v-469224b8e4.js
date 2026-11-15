@@ -69877,7 +69877,7 @@ A.aYB.prototype={
 $2(a,b){var s=null,r=this.a,q=r.c,p=q.a5d(r.d)
 if(p!=null)return r.e?new A.Hb(p,s):new A.IE(p,s)
 if(q.w===B.fv)return B.J4
-return A.qu(B.cu,new A.d1(B.cm,s,s,A.j5(B.Xk,s,B.at9,new A.aYA(a),s),s),s,s,1240,B.dA,s,!0,s,!0,"It may have been deleted, or it was open in another tab. Projects without a saved list are cleared when the page reloads.","Project not found")},
+return A.qu(B.cu,new A.d1(B.cm,s,s,A.j5(B.Xk,s,B.at8,new A.aYA(a),s),s),s,s,1240,B.dA,s,!0,s,!0,"It may have been deleted, or it was open in another tab. Projects without a saved list are cleared when the page reloads.","Project not found")},
 $S:854}
 A.aYA.prototype={
 $0(){return A.ec(this.a,t.X).e.e2("/")},
@@ -72082,7 +72082,7 @@ return A.Q($async$Cp,r)},
 F(a){var s,r,q,p,o=this,n=null,m=A.ig(B.ws,!1,o.e,B.Ye,n,n,B.lt,1,n,!1,n,B.Z,B.qk,A.boQ()),l=o.w,k=l?"Show password":"Hide password"
 l=A.ig(B.a3i,!1,o.f,A.hl(n,n,n,n,n,n,n,n,!0,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,"Password",!0,!0,!1,n,B.XC,n,n,n,n,n,n,A.ev(n,n,n,n,A.c2(l?B.v3:B.v2,n,n,n),n,n,n,new A.aUs(o),n,n,n,n,k,n),n,n,n,n,n),n,n,n,1,n,l,new A.aUt(o),B.Z,n,new A.aUu())
 k=o.r
-s=A.eI(!1,B.asO,n,n,!0,n,n,k?n:o.ganT(),n,n)
+s=A.eI(!1,B.asN,n,n,!0,n,n,k?n:o.ganT(),n,n)
 r=o.x
 q=o.y
 if(q===$)q=o.y=o.a.c.CW?"You were logged out after 60 minutes without use. Your results were cleared, so log in and add the files again.":n
@@ -72323,7 +72323,7 @@ n=j.Q
 if(n===$)n=j.Q=j.a.c.f
 m=j.z
 l=m?i:j.gyd()
-l=A.oE(m?B.r2:B.atN,i,l)
+l=A.oE(m?B.r2:B.atM,i,l)
 k=t.p
 return A.wY(i,new A.uF(A.mf(!0,A.eM(A.hX(new A.d6(B.mu,A.aF(A.a([B.Mb,B.iW,g,B.e7,h,B.q6,new A.GM(new A.al(B.K,A.GH(A.aF(A.a([s,r,q,p,o,new A.Da(n,i,i),l,B.as,A.eI(!1,B.HT,i,i,!0,i,i,m?i:j.a.c.gIZ(),i,i)],k),B.H,i,B.h,B.k),j.d),i),i)],k),B.H,i,B.h,B.k),i),i,B.RB,B.a2),i,i),!1,B.K,!0,!0),0,B.K,!1,i),i,i)}}
 A.aOj.prototype={
@@ -72374,12 +72374,12 @@ if(q)p.push(B.an5)
 else p.push(new A.a4g(j,m))
 p.push(B.f8)
 o=j.length===0
-n=o?m:A.mm(B.vH,B.uL,m,B.atp,new A.ang(a))
+n=o?m:A.mm(B.vH,B.uL,m,B.ato,new A.ang(a))
 if(q)k=B.Hm
 else k=o?B.Ip:new A.IG(A.dW(k,0,A.hH(5,"count",t.S),A.V(k).c).en(0),m)
 p.push(new A.PW("Recent projects",k,n,m))
 p.push(B.f8)
-p.push(new A.PW("Tools",B.aB2,A.mm(B.vH,B.uL,m,B.at2,new A.anh(a)),m))
+p.push(new A.PW("Tools",B.aB2,A.mm(B.vH,B.uL,m,B.at1,new A.anh(a)),m))
 p.push(B.f8)
 p.push(new A.Mw(l,m))
 return A.qu(B.cu,A.aF(p,B.H,m,B.h,B.k),m,B.wt,1240,B.dA,m,!0,m,!0,"Drawings and BOQs in; a priced Excel BOQ, offer and supplier RFQs out.",i)},
@@ -72605,7 +72605,7 @@ if((!n||B.c.m((k.b+" "+k.c).toLowerCase(),r))&&q.$1(k))p.push(k)}j=$.b9R().a
 if(l===0)o="Create a project, add drawings and download a priced BOQ in Excel."
 else{o=l===1?"":"s"
 o=""+l+" project"+o}n=t.p
-l=A.a([A.j5(B.vG,B.awT,B.atC,new A.aZM(a1),b)],n)
+l=A.a([A.j5(B.vG,B.awT,B.atB,new A.aZM(a1),b)],n)
 i=A.a([],n)
 if(a0.length!==0){h=A.a([new A.aM(320,b,A.dy(b,B.L,!1,b,!0,B.q,b,A.dG(),b,b,b,b,b,b,2,B.Y4,B.P,!0,b,!0,b,!1,b,B.ae,b,b,b,B.axc,b,b,b,b,b,1,b,b,!1,"\u2022",b,new A.aZN(s),b,b,b,!1,b,b,!1,b,!0,b,B.ah,b,b,b,b,b,b,b,b,b,b,b,b,!0,B.V,b,B.Z,b,b,b,b),b)],n)
 for(g=t.O,f=A.V(a0).i("T<1>"),m=0;m<4;++m){e={}
@@ -72794,7 +72794,7 @@ $1(a){return B.a0f},
 $S:144}
 A.aYt.prototype={
 $1(a){var s=null,r=A.y('"'+this.a.b+'" will be removed from your list.',s,s,s,s,s,s,s)
-return A.o7(A.a([A.eI(!1,B.he,s,s,!0,s,s,new A.aYr(a),s,s),A.oE(B.lz,s,new A.aYs(a))],t.p),r,s,B.atn)},
+return A.o7(A.a([A.eI(!1,B.he,s,s,!0,s,s,new A.aYr(a),s,s),A.oE(B.lz,s,new A.aYs(a))],t.p),r,s,B.atm)},
 $S:109}
 A.aYr.prototype={
 $0(){A.cY(this.a,!1).el(!1)
@@ -72866,7 +72866,7 @@ r=A.bB(20)
 q=A.c2(B.TT,s.b,m,36)
 p=l.ok
 o=p.r
-B.b.I(j,A.a([B.a6e,A.eM(new A.al(B.dX,new A.d6(B.JN,A.dv(!1,B.F,!0,r,new A.al(B.uc,A.aF(A.a([q,B.b1,A.y("Still there?",m,m,m,m,o==null?m:o.d9(B.a3),B.bo,m),B.as,A.y("You will be logged out in "+n.w+" seconds because the website has not been used for a while. Nothing is saved, so logging out clears the extracted items and rates of this tab.",m,m,m,m,p.z,B.bo,m),B.e6,A.oE(B.atJ,B.axX,n.gazZ()),B.bQ,A.eI(!1,B.asR,m,m,!0,m,m,new A.aSz(n),m,m)],k),B.H,m,B.h,B.a6),m),B.o,s.k2,8,m,m,m,m,m,B.aG),m),m),m,m)],k))}return A.vR(B.cs,A.kg(B.cl,j,B.q,B.cj,m),m,new A.aSA(n),new A.aSB(n),new A.aSC(n),m,new A.aSD(n),m)}}
+B.b.I(j,A.a([B.a6e,A.eM(new A.al(B.dX,new A.d6(B.JN,A.dv(!1,B.F,!0,r,new A.al(B.uc,A.aF(A.a([q,B.b1,A.y("Still there?",m,m,m,m,o==null?m:o.d9(B.a3),B.bo,m),B.as,A.y("You will be logged out in "+n.w+" seconds because the website has not been used for a while. Nothing is saved, so logging out clears the extracted items and rates of this tab.",m,m,m,m,p.z,B.bo,m),B.e6,A.oE(B.atI,B.axX,n.gazZ()),B.bQ,A.eI(!1,B.asQ,m,m,!0,m,m,new A.aSz(n),m,m)],k),B.H,m,B.h,B.a6),m),B.o,s.k2,8,m,m,m,m,m,B.aG),m),m),m,m)],k))}return A.vR(B.cs,A.kg(B.cl,j,B.q,B.cj,m),m,new A.aSA(n),new A.aSB(n),new A.aSC(n),m,new A.aSD(n),m)}}
 A.aSE.prototype={
 $1(a){return this.a.WD()},
 $S:174}
@@ -72984,7 +72984,7 @@ m.toString
 p=B.b.iH(q.a.c.r,m)
 s=2
 return A.D(o.m1(q.a.c),$async$C7)
-case 2:n.cA(A.ed(new A.Ko("Undo",new A.aTj(q,m,p,o),null),null,null,null,null,B.q,null,B.atz,null,B.af,null,null,null,null,null,null,null,null,null,null))
+case 2:n.cA(A.ed(new A.Ko("Undo",new A.aTj(q,m,p,o),null),null,null,null,null,B.q,null,B.aty,null,B.af,null,null,null,null,null,null,null,null,null,null))
 return A.P(null,r)}})
 return A.Q($async$C7,r)},
 F(a){var s=a.P(t.T).f
@@ -73053,7 +73053,7 @@ i=a4.c
 if(i>0)r.push("Discount "+A.b8A(i)+"%")
 r=B.b.X(r,"  \xb7  ")
 i=A.a([],h)
-if(!a8)i.push(A.j5(B.kq,B.avZ,B.asW,new A.aTs(a3),a0))
+if(!a8)i.push(A.j5(B.kq,B.avZ,B.asV,new A.aTs(a3),a0))
 i.push(A.m7(B.vy,a0,B.au5,A.boR()))
 f=A.a([],h)
 e=a7.length
@@ -73433,7 +73433,7 @@ o=o.au(l==null?m.k3:l)}p.push(A.y(n,j,j,j,j,o,j,j))
 o=k.a.c
 n=v.G.estimationAuth
 n=n==null?j:n.priceSearchConfigured()
-if((n===!0||o.gIH())&&k.a.c.b!=null)B.b.I(p,A.a([B.as,new A.d1(B.cm,j,j,A.m7(B.vA,B.axR,B.atl,k.gayH()),j)],q))
+if((n===!0||o.gIH())&&k.a.c.b!=null)B.b.I(p,A.a([B.as,new A.d1(B.cm,j,j,A.m7(B.vA,B.axR,B.atk,k.gayH()),j)],q))
 p=A.hX(A.GH(A.aF(p,B.H,j,B.h,B.a6),k.d),j,j,B.a2)
 return A.o7(A.a([A.eI(!1,B.he,j,j,!0,j,j,new A.aTi(a),j,j),A.oE(B.ly,B.axL,k.gati())],q),new A.aM(520,j,p,j),j,r)}}
 A.aTe.prototype={
@@ -73570,7 +73570,7 @@ o.push(e.$2(g.$3$lines(j.gMR(),"Packing (LT panel offer)",2),g.$3$lines(j.gMD(),
 r=A.hX(A.GH(A.aF(o,B.H,i,B.h,B.a6),j.d),i,i,B.a2)
 n=A.a([A.eI(!1,B.he,i,i,!0,i,i,new A.aWs(a),i,i)],n)
 j.a.toString
-n.push(A.j5(B.vB,B.aw8,B.atH,new A.aWt(j),i))
+n.push(A.j5(B.vB,B.aw8,B.atG,new A.aWt(j),i))
 j.a.toString
 return A.o7(n,new A.aM(640,i,r,i),i,s)}}
 A.aWu.prototype={
@@ -73697,7 +73697,7 @@ r=n.c
 q=r.ba(n.d?0.12:0.06)
 p=A.bB(11)
 o=n.e
-p=A.a([A.c7(m,A.c2(l.b,r,m,22),B.o,m,m,new A.bH(q,m,m,p,m,m,B.N),m,36,m,m,m,m,m,36),B.an2,A.y(l.a,m,2,B.a0,m,o,B.bo,m)],t.p)
+p=A.a([A.c7(m,A.c2(l.b,r,m,22),B.o,m,m,new A.bH(q,m,m,p,m,m,B.N),m,36,m,m,m,m,m,36),B.an3,A.y(l.a,m,2,B.a0,m,o,B.bo,m)],t.p)
 if(l.f!=null)p.push(A.c2(B.oc,o==null?m:o.b,m,14))
 return A.dN(!1,k,!0,A.c7(m,A.aF(p,B.r,m,B.h,B.a6),B.o,m,B.JO,s,m,m,m,m,B.S4,m,m,m),m,!0,m,m,m,m,l.w,m,m,m,m,m,j,m,m,m,m,m,m,m)},
 $S:243}
@@ -73795,7 +73795,7 @@ r.n(0,B.c.D(n.a).toLowerCase()+"|"+B.c.D(m).toLowerCase()+"|"+B.c.D("Nos").toLow
 l=a0==null?b:a0.d9(B.a3)
 k=new A.aX5()
 a0=t.p
-a1=A.a([A.aP(A.a([A.bh(k.$3$key(c.gqZ(),"Switchboard name",B.ax3),3),B.b0,A.bh(k.$4$key$number(c.gr0(),"Quantity (nos.)",B.ax6,!0),1)],a0),B.r,B.h,B.k,0,b),k.$3$lines(c.gKu(),"Construction",2),B.bQ,A.aP(A.a([A.bh(A.y("Feeders ("+c.a.c.d.length+")",b,b,b,b,l,b,b),1),A.mm(B.kq,b,B.avX,B.atM,new A.aX0(c))],a0),B.r,B.h,B.k,0,b)],a0)
+a1=A.a([A.aP(A.a([A.bh(k.$3$key(c.gqZ(),"Switchboard name",B.ax3),3),B.b0,A.bh(k.$4$key$number(c.gr0(),"Quantity (nos.)",B.ax6,!0),1)],a0),B.r,B.h,B.k,0,b),k.$3$lines(c.gKu(),"Construction",2),B.bQ,A.aP(A.a([A.bh(A.y("Feeders ("+c.a.c.d.length+")",b,b,b,b,l,b,b),1),A.mm(B.kq,b,B.avX,B.atL,new A.aX0(c))],a0),B.r,B.h,B.k,0,b)],a0)
 for(q=c.a.c.d,n=q.length,m=s==null,j=t.s,p=0;p<q.length;q.length===n||(0,A.j)(q),++p){i=q[p]
 h=A.y(""+i.e+" x "+i.a,b,b,b,b,b,b,b)
 g=B.p1.h(0,i.b)
@@ -73824,7 +73824,7 @@ for(r=new A.bN(r,r.$ti.i("bN<1,2>")).gO(0),n=c.w;r.p();){d=r.d
 m=n.aN(d.a,new A.aX3())
 j=d.b.a
 q.push(k.$3$number(m,j.a+"  ("+A.Xa(j)+")",!0))}B.b.I(a1,q)}a1=A.hX(A.aF(a1,B.H,b,B.h,B.a6),b,b,B.a2)
-return A.o7(A.a([A.eI(!1,B.he,b,b,!0,b,b,new A.aX4(a2),b,b),A.j5(B.vB,B.ax7,B.ly,c.gNn(),b)],a0),new A.aM(720,b,a1,b),b,B.atW)}}
+return A.o7(A.a([A.eI(!1,B.he,b,b,!0,b,b,new A.aX4(a2),b,b),A.j5(B.vB,B.ax7,B.ly,c.gNn(),b)],a0),new A.aM(720,b,a1,b),b,B.atV)}}
 A.aWY.prototype={
 $1(a){return new A.xU(this.a,null)},
 $S:395}
@@ -74007,7 +74007,7 @@ o=A.aF(A.a([A.y(j,m,m,m,m,r==null?m:r.au(l.ax.fy),m,m),B.b1,A.aus(B.HR,m,n.gawX(
 else{j=p.length
 if(j===0){j=n.e
 o=A.y("No price with a link was found for this item. Type a rate yourself, or try a shorter description."+(j.length===0?"":"\n"+B.b.X(j,"\n")),m,m,m,m,k.z,m,m)}else{r=n.w
-j=A.a([A.bcO(B.K,m,B.axP,new A.aY7(n),A.y('Takes 18% out so the rate is before GST, like the rest of the BOQ. Prices marked "before GST" are kept as they are.',m,m,m,m,s,m,m),B.atL,r),B.tU,new A.hk(1,B.c7,A.bbE(new A.aY8(n,p,s,l),j,m,new A.aY9(),!0),m)],t.p)
+j=A.a([A.bcO(B.K,m,B.axP,new A.aY7(n),A.y('Takes 18% out so the rate is before GST, like the rest of the BOQ. Prices marked "before GST" are kept as they are.',m,m,m,m,s,m,m),B.atK,r),B.tU,new A.hk(1,B.c7,A.bbE(new A.aY8(n,p,s,l),j,m,new A.aY9(),!0),m)],t.p)
 r=n.e
 if(r.length!==0)j.push(new A.al(B.k1,A.y(B.b.X(r,"\n"),m,m,m,m,s,m,m),m))
 o=A.aF(j,B.H,m,B.h,B.a6)}}j=n.a
@@ -74015,7 +74015,7 @@ j=new A.T(A.a([j.r,j.d,j.e],t.s),new A.aYa(),t.gD).X(0,"  \xb7  ")
 k=k.x
 r=t.p
 k=A.aF(A.a([A.y(j,m,m,m,m,k==null?m:k.d9(B.a3),m,m),B.e7,A.y("Google results and ChatGPT web search, India. Open the page to check the price and specification before you use it.",m,m,m,m,s,m,m),B.b1,new A.hk(1,B.c7,o,m)],r),B.H,m,B.h,B.a6)
-return A.o7(A.a([A.eI(!1,B.qn,m,m,!0,m,m,new A.aYb(a),m,m)],r),new A.aM(620,m,k,m),m,B.atu)}}
+return A.o7(A.a([A.eI(!1,B.qn,m,m,!0,m,m,new A.aYb(a),m,m)],r),new A.aM(620,m,k,m),m,B.att)}}
 A.aY_.prototype={
 $0(){var s=this.a
 s.f=s.d=null},
@@ -74069,7 +74069,7 @@ q=A.y(new A.T(q,new A.aY3(),t.gD).X(0,"  \xb7  "),l,l,l,l,m.c,l,l)
 p=A.fa(A.cB(k.h(0,"price")),!0)
 o=m.d.ok.x
 n=m.a
-return A.i8(!1,B.K,l,l,!0,l,l,l,!0,l,l,A.y(p,l,l,l,l,o==null?l:o.d9(B.a3),l,l),o,l,l,l,l,l,!1,l,l,l,l,l,q,l,r,l,A.aP(A.a([A.ev(l,l,l,l,B.WR,l,l,l,new A.aY4(n,j),l,l,l,l,"Open the page",l),new A.ve(B.Ir,!1,new A.aY5(n,k),l,l,l,l,B.o,l,!1,l,!0,l,B.atx,new A.a1("usePrice-"+b,t.O))],t.p),B.r,B.h,B.a6,0,l),l)},
+return A.i8(!1,B.K,l,l,!0,l,l,l,!0,l,l,A.y(p,l,l,l,l,o==null?l:o.d9(B.a3),l,l),o,l,l,l,l,l,!1,l,l,l,l,l,q,l,r,l,A.aP(A.a([A.ev(l,l,l,l,B.WR,l,l,l,new A.aY4(n,j),l,l,l,l,"Open the page",l),new A.ve(B.Ir,!1,new A.aY5(n,k),l,l,l,l,B.o,l,!1,l,!0,l,B.atw,new A.a1("usePrice-"+b,t.O))],t.p),B.r,B.h,B.a6,0,l),l)},
 $S:400}
 A.aY3.prototype={
 $1(a){return a.length!==0},
@@ -74552,7 +74552,7 @@ B.b.I(p,A.a([A.za(o,A.biY(8,m===0?0:n.a/m),B.bf),B.as,A.y(n.c,j,j,j,j,i.ok.Q,j,j
 n=o.as==null
 if(!(!n&&o.f.length!==0)&&!k.f){if(g)g="Add files above first."
 else if(n&&o.r.length!==0)g="Files changed since the last run. Process again to update the results."
-else if(c)g="Your BOQ rows are kept exactly as written, in the same order. Press Match prices to fill the rates."
+else if(c)g="Your BOQ rows are kept exactly as written, in the same order. Press Start Working to fill the rates."
 else{g=o.f.length
 o=g===1?"":"s"
 o=""+g+" file"+o+" selected. Remove any you don't need, then press Upload & process. Nothing is read before that."
@@ -74565,8 +74565,8 @@ q=A.a([],q)
 for(n=k.a.c.x,m=n.length,l=0;l<n.length;n.length===m||(0,A.j)(n),++l)q.push(A.i8(!1,B.K,!0,j,!0,j,j,j,!0,j,j,j,j,j,j,j,j,j,!1,j,j,j,j,j,j,j,A.y(n[l],j,j,j,j,j,j,j),j,j,j))
 p.push(A.al_(q,j,o,j,j,B.K,g))}g=f&&!k.f&&!k.r?k.ga0w():j
 q=A.c2(c?B.vg:B.Te,j,j,j)
-if(c){o=k.a.c
-o=o.as!=null&&o.f.length!==0?"Match again":"Match prices"}else{o=k.a.c
+if(c)o="Start Working"
+else{o=k.a.c
 if(o.as!=null&&o.f.length!==0)o="Process again"
 else{if(f){o=o.f.length
 n=o===1?"":"s"
@@ -74591,7 +74591,7 @@ l=d.$2("Warranty",e.Q)
 d=d.$2("Price basis",e.x)
 k=e.w
 j=A.m7(B.Xm,B.awY,A.y(k?"Edit offer terms":"Review & confirm offer terms",g,g,g,g,g,g,g),new A.aYN(h,c))
-i=A.j5(B.vJ,B.awZ,B.atR,p&&k?new A.aYO(h,c):g,g)
+i=A.j5(B.vJ,B.awZ,B.atQ,p&&k?new A.aYO(h,c):g,g)
 d=A.a([q,o,n,m,l,d,B.e7,j,B.aN,i,B.aN,A.m7(B.vD,B.awV,B.asC,p&&k?new A.aYP(h,c):g)],t.p)
 if(!p||!e.w){q=h.a.c
 d.push(new A.al(B.i_,A.y(!(q.as!=null&&q.f.length!==0&&q.r.length!==0)?"Upload and process the files first.":"Confirm the offer terms to turn on the offer download.",g,g,g,g,s,B.bo,g),g))}return A.fM(A.aF(d,B.H,g,B.h,B.k),B.TQ,g,"Check the commercial terms, confirm them, then download the offer",""+a0+". Offer package",r)},
@@ -74697,9 +74697,9 @@ d=a2.f
 a0=A.ev(a3,a3,a3,a3,B.kr,a3,a3,a3,d?a3:new A.aYT(a2,e),a3,a3,a3,a3,"Edit switchboard",a3)
 k.push(A.i8(!1,B.K,a3,a3,!0,a3,a3,a3,!0,a3,new A.a1("board-"+c,h),a3,a3,a3,a3,a3,a3,a3,!1,a3,a3,a3,a3,a3,a,a3,b,a3,A.aP(A.a([a0,A.ev(a3,a3,a3,a3,B.i8,a3,a3,a3,d?a3:new A.aYU(a2,a7,o,e),a3,a3,a3,a3,"Remove switchboard",a3)],l),B.r,B.h,B.a6,0,a3),a3))}k.push(A.m7(B.kq,B.avW,B.asL,a2.f?a3:new A.aYV(a2)))
 k.push(B.aN)
-k.push(A.j5(B.vJ,B.ax4,B.atD,m?new A.aYW(a2):a3,a3))
+k.push(A.j5(B.vJ,B.ax4,B.atC,m?new A.aYW(a2):a3,a3))
 k.push(B.aN)
-k.push(A.m7(B.WU,B.ax2,B.au1,m?new A.aYX(a2):a3))
+k.push(A.m7(B.WU,B.ax2,B.au0,m?new A.aYX(a2):a3))
 k.push(B.aN)
 k.push(A.m7(B.vD,B.ax5,B.asH,m?new A.aYY(a2):a3))
 if(!m)k.push(new A.al(B.i_,A.y(r.gab(o)?"Add a switchboard first.":"Confirm the offer terms in step 4 to turn on the panel offer download.",a3,a3,a3,a3,s,B.bo,a3),a3))
@@ -74712,17 +74712,17 @@ r=r.as!=null&&r.f.length!==0&&r.r.length!==0&&!o.f?o.gXV():n
 q=t.p
 r=A.a([A.j5(B.vy,B.awe,A.y(e?"Download priced BOQ (Excel)":"Download Excel",n,n,n,n,n,n,n),r,n)],q)
 if(a.P(t.T).w.b!=null){p=o.a.c
-B.b.I(r,A.a([B.aN,A.bba(B.WE,B.ay5,B.asA,p.as!=null&&p.f.length!==0&&p.r.length!==0&&!o.f?o.gC0():n),new A.al(B.k0,A.y("Sends this BOQ to the AI pricing agent, which fills every price from your past rates, panel offers, online prices and estimates. Download the priced workbook from its panel.",n,n,n,n,l.ok.Q,B.bo,n),n)],q))}if(c.length!==0&&!o.f)B.b.I(r,A.a([B.aN,A.m7(B.WD,B.awb,B.atS,new A.aYJ(o,c))],q))
+B.b.I(r,A.a([B.aN,A.bba(B.WE,B.ay5,B.asA,p.as!=null&&p.f.length!==0&&p.r.length!==0&&!o.f?o.gC0():n),new A.al(B.k0,A.y("Sends this BOQ to the AI pricing agent, which fills every price from your past rates, panel offers, online prices and estimates. Download the priced workbook from its panel.",n,n,n,n,l.ok.Q,B.bo,n),n)],q))}if(c.length!==0&&!o.f)B.b.I(r,A.a([B.aN,A.m7(B.WD,B.awb,B.atR,new A.aYJ(o,c))],q))
 q=o.a.c
-if(q.as!=null&&q.f.length!==0&&q.r.length!==0&&!o.f&&$.ly().mZ(m))r.push(A.mm(B.Xn,n,B.ay8,B.atV,o.ga48()))
+if(q.as!=null&&q.f.length!==0&&q.r.length!==0&&!o.f&&$.ly().mZ(m))r.push(A.mm(B.Xn,n,B.ay8,B.atU,o.ga48()))
 q=o.a.c
-if(q.as!=null&&q.f.length!==0&&q.r.length!==0&&!o.f&&$.ly().mZ("tally"))r.push(A.mm(B.WI,n,B.ay0,B.au_,o.ga2l()))
+if(q.as!=null&&q.f.length!==0&&q.r.length!==0&&!o.f&&$.ly().mZ("tally"))r.push(A.mm(B.WI,n,B.ay0,B.atZ,o.ga2l()))
 q=o.a.c
 if(q.as!=null&&q.f.length!==0&&q.r.length!==0&&!o.f&&A.h_().canShareFiles()&&!$.ly().mZ(m))r.push(A.mm(B.WP,n,n,B.asB,new A.aYK(o,b)))
 q=o.a.c
 p=q.as!=null
 if(!(p&&q.f.length!==0&&q.r.length!==0)){if(p&&q.f.length!==0)q="No items were found to export."
-else q=e?"Match prices first to turn on the download.":"Upload and extract first to turn on the download."
+else q=e?"Press Start Working first to turn on the download.":"Upload and extract first to turn on the download."
 r.push(new A.al(B.i_,A.y(q,n,n,n,n,l.ok.Q,B.bo,n),n))}return A.fM(A.aF(r,B.H,n,B.h,B.k),B.TB,n,s,k,n)},
 amA(a,b,c,d){return this.XW(a,b,c,d,!1)}}
 A.aZI.prototype={
@@ -74837,7 +74837,7 @@ if(n){h=b.a.c
 h=h.as!=null&&h.f.length!==0}else h=!1
 if(h){c=c.b
 h=(l?d:a.f)===!0?d:new A.aZe(b)
-c=A.bcO(B.K,!0,d,h,A.y('Marked "Estimate, confirm" in the Review column, with its basis on the Rates sheet.',d,d,d,d,i,d,d),B.at_,c)
+c=A.bcO(B.K,!0,d,h,A.y('Marked "Estimate, confirm" in the Review column, with its basis on the Rates sheet.',d,d,d,d,i,d,d),B.asZ,c)
 b=(l?d:a.f)===!0||a2===0||b.f?d:b.gayI()
 if(a2===0)i="No rows without a price"
 else{i=a2===1?"":"s"
@@ -74964,7 +74964,7 @@ r=c?16:32
 n=c?16:32
 g=!a4.f
 f=!g||a4.r||a8==null?a1:a4.gVH()
-e=a9?"Price rows":"Process"
+e=a9?"Start Working":"Process"
 b=a9?B.kp:B.VP
 g=a4.a.c.f.length!==0&&g&&!a4.r?a4.ga0w():a1
 a=t.DP
@@ -74991,7 +74991,7 @@ b.push(a5.a?"Auto pricing":"Manual pricing")
 f=B.b.X(b,"  \xb7  ")
 q=A.m7(B.kr,a1,B.qo,q)
 b=a4.a.c
-a4=A.a([q,A.bba(B.XE,B.axm,B.atv,b.as!=null&&b.f.length!==0&&!a4.f?new A.aZy(a4,b0):a1)],a6)
+a4=A.a([q,A.bba(B.XE,B.axm,B.atu,b.as!=null&&b.f.length!==0&&!a4.f?new A.aZy(a4,b0):a1)],a6)
 a6=A.bk(b0,B.aX,o).w.a.a>=1100?A.aP(A.a([A.bh(l,3),B.amX,A.bh(k,2)],a6),B.T,B.h,B.k,0,a1):A.aF(A.a([l,B.bY,k],a6),B.H,a1,B.h,B.k)
 return A.qu(a4,a6,new A.al(new A.a9(r,0,n,20),new A.a8y(d,a1),a1),a3,1240,g,"Project",!0,a1,!0,f,e)},
 $S:96}
@@ -76484,7 +76484,7 @@ return A.Q($async$$0,r)},
 $S:44}
 A.b0W.prototype={
 $1(a){var s=null
-return A.o7(A.a([A.eI(!1,B.au3,s,s,!0,s,s,new A.b0V(a),s,s)],t.p),B.amF,s,B.atA)},
+return A.o7(A.a([A.eI(!1,B.au3,s,s,!0,s,s,new A.b0V(a),s,s)],t.p),B.amF,s,B.atz)},
 $S:109}
 A.b0V.prototype={
 $0(){return A.cY(this.a,!1).fc()},
@@ -76616,7 +76616,7 @@ if(b<p)return s.a.ax7(a,q[b])
 b-=p
 q=s.c
 if(b===q.length){q=s.a
-return A.eM(A.eI(!1,B.asT,r,r,!0,r,r,q.ay?r:new A.b0Y(q),r,r),r,r)}return s.a.ayb(a,q[b],A.bk(a,B.aX,t.w).w.a.a>=900)},
+return A.eM(A.eI(!1,B.asS,r,r,!0,r,r,q.ay?r:new A.b0Y(q),r,r),r,r)}return s.a.ayb(a,q[b],A.bk(a,B.aX,t.w).w.a.a>=900)},
 $S:249}
 A.b0Y.prototype={
 $0(){return this.a.u7(!0)},
@@ -76894,7 +76894,7 @@ d=d<1048576?""+B.d.eu(d/1024)+" KB":B.d.M(d/1048576,1)+" MB"
 i.push(new A.Tp(B.ol,A.y(e.a+"  ("+d+", forwarded)",b,b,b,b,b,b,b),b))}for(h=a2.length,f=0;f<a2.length;a2.length===h||(0,A.j)(a2),++f){e=a2[f]
 g=e.b.length
 g=g<1048576?""+B.d.eu(g/1024)+" KB":B.d.M(g/1048576,1)+" MB"
-i.push(A.bbs(B.ol,b,A.y(e.a+"  ("+g+")",b,b,b,b,b,b,b),new A.aUK(c,e),b))}i.push(A.m7(B.X3,b,B.au0,c.z?b:new A.aUL(c)))
+i.push(A.bbs(B.ol,b,A.y(e.a+"  ("+g+")",b,b,b,b,b,b,b),new A.aUK(c,e),b))}i.push(A.m7(B.X3,b,B.au_,c.z?b:new A.aUL(c)))
 a2=A.dA(B.al,i,B.ck,6,6)
 if(r)i="The files add up to "+A.bp5(s)+", more than Gmail's 25 MB limit for one email. Remove some files."
 else i=(s===0?"No files attached.":"Total "+A.bp5(s)+" of 25 MB (Gmail's limit).")+" Attached files are also saved in your Drive (Estimation RFQ folder)."
@@ -77212,7 +77212,7 @@ if(c2==null){c2=c1.t
 c1=c2==null?c1.k3:c2}else c1=c2}else c1=d8.ch
 c1=A.iv(c1,1)
 c2=A.bB(6)
-if(d4.CW)c3=B.an3
+if(d4.CW)c3=B.an4
 else c3=A.c2(B.i7,a4?B.aA:d8.ay,d5,30)
 a9=a9?"Sent":"Send"
 c4=t.p
@@ -77238,7 +77238,7 @@ if(a8.length===0)a8=d5
 b9=t.FG
 c0=A.a([],b9)
 for(c1=b4.length,c2=t.b7,p=0;p<b4.length;b4.length===c1||(0,A.j)(b4),++p){c5=b4[p]
-c0.push(new A.fF(c5,!0,A.y(c5,d5,d5,d5,d5,d5,d5,d5),B.bp,d5,c2))}a8=A.zF(B.Yo,B.au2,a8,!0,!0,c0,B.axY,new A.b37(d4),k)
+c0.push(new A.fF(c5,!0,A.y(c5,d5,d5,d5,d5,d5,d5,d5),B.bp,d5,c2))}a8=A.zF(B.Yo,B.au1,a8,!0,!0,c0,B.axY,new A.b37(d4),k)
 c0=d4.cx
 c1=t.O
 c3=a6?d5:b6
@@ -77315,7 +77315,7 @@ else{r=m.length
 q=d4.dy==null&&l.a!==0?" (those the chosen suppliers supply)":""
 q="Items with no rate: "+r+" of "+s+" ticked"+q
 s=q}}d9=A.a([e,B.b1,e3,B.as,A.y(s,B.axz,d5,d5,d5,d9.x,d5,d5)],c4)
-if(n.length!==0)d9.push(A.dA(B.al,A.a([A.eI(!1,B.atX,d5,d5,!0,d5,d5,new A.b3h(d4,n),d5,d5),A.eI(!1,B.atw,d5,d5,!0,d5,d5,new A.b3i(d4),d5,d5),A.eI(!1,B.atQ,d5,d5,!0,d5,d5,new A.b3j(d4),d5,d5)],c4),B.b3,0,0))
+if(n.length!==0)d9.push(A.dA(B.al,A.a([A.eI(!1,B.atW,d5,d5,!0,d5,d5,new A.b3h(d4,n),d5,d5),A.eI(!1,B.atv,d5,d5,!0,d5,d5,new A.b3i(d4),d5,d5),A.eI(!1,B.atP,d5,d5,!0,d5,d5,new A.b3j(d4),d5,d5)],c4),B.b3,0,0))
 if(n.length!==0){e3=A.a([],c4)
 for(s=n.length,p=0;p<n.length;n.length===s||(0,A.j)(n),++p){j=n[p]
 r=i.m(0,j)
@@ -77334,7 +77334,7 @@ d9.push(A.y(a3,B.axA,d5,d5,d5,e3,d5,d5))
 e3=d4.fr
 if(e3!=null)d9.push(new A.al(B.k1,A.y(e3,B.axE,d5,d5,d5,d5,d5,d5),d5))
 d9.push(B.aN)
-e3=A.aus(B.atf,d5,d4.CW?d5:new A.b3l(d4,d7),d5)
+e3=A.aus(B.ate,d5,d4.CW?d5:new A.b3l(d4,d7),d5)
 e4=d4.go
 s=A.c2(e4?B.Vg:B.oe,d5,d5,d5)
 d9.push(A.dA(B.lP,A.a([e3,A.mm(s,d5,B.axt,A.y(e4?"Close":"Discard",d5,d5,d5,d5,d5,d5,d5),new A.b3m(d4))],c4),B.b3,8,8))
@@ -77850,15 +77850,15 @@ s===$&&A.b()
 s.ay$=$.a7()
 s.ax$=0
 this.ao()},
-F(a){var s,r,q=null,p=t.T,o=a.P(p).f,n=A.x(a),m=A.bcO(B.K,q,q,new A.b4A(this,o),B.ath,B.ats,o.e.b),l=n.ok,k=A.y("DWG converter (optional)",q,q,q,q,l.w,q,q)
+F(a){var s,r,q=null,p=t.T,o=a.P(p).f,n=A.x(a),m=A.bcO(B.K,q,q,new A.b4A(this,o),B.atg,B.atr,o.e.b),l=n.ok,k=A.y("DWG converter (optional)",q,q,q,q,l.w,q,q)
 l=A.y("DWG is a closed AutoCAD format. DXF files are read directly in your browser. To read DWG files, enter the https address of your own converter service (see server/README.md). DWG files are uploaded to that address only; nothing else leaves your computer.",q,q,q,q,l.Q,q,q)
 s=this.d
 s===$&&A.b()
 r=t.p
 s=A.a([m,B.hW,k,B.as,l,B.as,A.dy(q,B.L,!1,q,!0,B.q,q,A.dG(),s,q,q,q,q,q,2,B.Y7,B.P,!0,q,!0,q,!1,q,B.ae,q,q,q,q,q,B.lu,q,q,q,1,q,q,!1,"\u2022",q,q,q,q,q,!1,q,q,!1,q,!0,q,B.ah,q,q,q,q,q,q,q,q,q,q,q,q,!0,B.V,q,B.Z,q,q,q,q),B.as,new A.d1(B.cE,q,q,A.oE(B.ly,q,new A.b4B(this,a,o)),q),B.hW,B.aAe],r)
-if(a.P(p).w.b!=null)B.b.I(s,A.a([B.hW,B.aAM,B.hW,A.i8(!1,B.K,q,q,!0,q,q,q,!0,q,q,B.WS,q,q,q,q,q,new A.b4C(a),!1,q,q,q,q,q,B.au6,q,B.asU,q,B.vF,q)],r))
+if(a.P(p).w.b!=null)B.b.I(s,A.a([B.hW,B.aAM,B.hW,A.i8(!1,B.K,q,q,!0,q,q,q,!0,q,q,B.WS,q,q,q,q,q,new A.b4C(a),!1,q,q,q,q,q,B.au6,q,B.asT,q,B.vF,q)],r))
 s.push(B.hW)
-s.push(A.i8(!1,B.K,q,q,!0,q,q,q,!0,q,q,q,q,q,q,q,q,new A.b4D(a),!1,q,q,q,q,q,q,q,B.atF,q,q,q))
+s.push(A.i8(!1,B.K,q,q,!0,q,q,q,!0,q,q,q,q,q,q,q,q,new A.b4D(a),!1,q,q,q,q,q,q,q,B.atE,q,q,q))
 return A.qu(B.cu,A.fM(A.aF(s,B.H,q,B.h,B.k),q,q,q,q,q),q,q,820,B.dA,q,!0,q,!0,"These apply to this browser tab.","Settings")}}
 A.b4A.prototype={
 $1(a){return this.abz(a)},
@@ -77967,7 +77967,7 @@ n=A.y(q,B.ax9,i,i,i,p,i,i)
 p=A.y("Kept in your Google Sheet, read only by your account. It is never part of the website.",i,i,i,i,p,i,i)
 m=t.p
 l=A.a([],m)
-if(r.x.length!==0)l.push(A.mm(B.Xa,i,i,B.atZ,new A.aXY(r)))
+if(r.x.length!==0)l.push(A.mm(B.Xa,i,i,B.atY,new A.aXY(r)))
 k=this.a
 j=k.d
 r=j||r.y?i:k.gazk()
@@ -78022,7 +78022,7 @@ r=t.p
 m=A.dA(B.al,A.a([m.$2("copper","Copper"),m.$2("aluminium","Aluminium"),m.$2("steel","Steel (HR coil)"),m.$2("zinc","Zinc")],r),B.b3,12,12)
 q=A.a([],r)
 if(!n.gGy())q.push(A.eI(!1,A.y("Use bundled prices (2026-10-24)",p,p,p,p,p,p,p),p,p,!0,p,p,new A.aVV(this),p,p))
-q.push(A.oE(B.atB,B.axM,this.gazj()))
+q.push(A.oE(B.atA,B.axM,this.gazj()))
 return A.aF(A.a([k,B.as,s,B.as,l,B.b1,m,B.as,A.dA(B.lP,q,B.b3,0,8)],r),B.H,p,B.h,B.k)}}
 A.aVU.prototype={
 $1(a){var s=this.a.gCl().h(0,a).a.a,r=A.cw(B.c.D(A.A(s,",","")))
@@ -78127,7 +78127,7 @@ return new A.d1(B.el,s,s,new A.d6(new A.am(0,this.a.a.r,0,1/0),a,s),s)},
 $S:455}
 A.asZ.prototype={
 $1(a){var s=null
-return A.o7(A.a([A.eI(!1,B.qn,s,s,!0,s,s,new A.asY(a),s,s)],t.p),B.an4,B.WJ,B.asJ)},
+return A.o7(A.a([A.eI(!1,B.qn,s,s,!0,s,s,new A.asY(a),s,s)],t.p),B.an1,B.WJ,B.asJ)},
 $S:109}
 A.asY.prototype={
 $0(){A.cY(this.a,!1).el(null)
@@ -78135,7 +78135,7 @@ return null},
 $S:0}
 A.ata.prototype={
 $1(a){var s=null
-return A.o7(A.a([A.eI(!1,B.qn,s,s,!0,s,s,new A.at9(a),s,s)],t.p),B.an1,B.WZ,B.atO)},
+return A.o7(A.a([A.eI(!1,B.qn,s,s,!0,s,s,new A.at9(a),s,s)],t.p),B.an2,B.WZ,B.atN)},
 $S:109}
 A.at9.prototype={
 $0(){A.cY(this.a,!1).el(null)
@@ -78933,7 +78933,7 @@ r.ay$=q
 r.ax$=0
 s.ao()},
 DU(){return this.L(new A.aUv(this))},
-F(a){var s,r,q,p=this,o=null,n=A.x(a),m=p.r,l=$.rP!=null?"your price database":"your price database (upload it in Settings)",k=p.f,j=t.p,i=A.a([A.dA(B.al,A.a([new A.aM(420,o,A.dy(o,B.L,!1,o,!0,B.q,o,A.dG(),p.d,o,o,o,o,o,2,B.Y5,B.P,!0,o,!0,o,!1,o,B.ae,o,o,o,B.ay9,o,o,o,o,o,1,o,o,!1,"\u2022",o,o,o,new A.aUw(p),o,!1,o,o,!1,o,!0,o,B.ah,o,o,o,o,o,o,o,o,o,o,o,o,!0,B.V,o,B.Z,o,o,o,o),o),new A.aM(160,o,A.dy(o,B.L,!1,o,!0,B.q,o,A.dG(),p.e,o,o,o,o,o,2,B.vO,B.P,!0,o,!0,o,!1,o,B.ae,o,o,o,o,o,o,o,o,o,1,o,o,!1,"\u2022",o,o,o,new A.aUx(p),o,!1,o,o,!1,o,!0,o,B.ah,o,o,o,o,o,o,o,o,o,o,o,o,!0,B.V,o,B.Z,o,o,o,o),o),new A.aM(110,o,A.dy(o,B.L,!1,o,!0,B.q,o,A.dG(),k,o,o,o,o,o,2,B.vP,B.P,!0,o,!0,o,!1,o,B.ae,o,o,o,o,o,o,o,o,o,1,o,o,!1,"\u2022",o,o,o,new A.aUy(p),o,!1,o,o,!1,o,!0,o,B.ah,o,o,o,o,o,o,o,o,o,o,o,o,!0,B.V,o,B.Z,o,o,o,o),o),A.j5(B.ok,B.avL,B.at4,p.gaAD(),o)],j),B.ck,14,14)],j)
+F(a){var s,r,q,p=this,o=null,n=A.x(a),m=p.r,l=$.rP!=null?"your price database":"your price database (upload it in Settings)",k=p.f,j=t.p,i=A.a([A.dA(B.al,A.a([new A.aM(420,o,A.dy(o,B.L,!1,o,!0,B.q,o,A.dG(),p.d,o,o,o,o,o,2,B.Y5,B.P,!0,o,!0,o,!1,o,B.ae,o,o,o,B.ay9,o,o,o,o,o,1,o,o,!1,"\u2022",o,o,o,new A.aUw(p),o,!1,o,o,!1,o,!0,o,B.ah,o,o,o,o,o,o,o,o,o,o,o,o,!0,B.V,o,B.Z,o,o,o,o),o),new A.aM(160,o,A.dy(o,B.L,!1,o,!0,B.q,o,A.dG(),p.e,o,o,o,o,o,2,B.vO,B.P,!0,o,!0,o,!1,o,B.ae,o,o,o,o,o,o,o,o,o,1,o,o,!1,"\u2022",o,o,o,new A.aUx(p),o,!1,o,o,!1,o,!0,o,B.ah,o,o,o,o,o,o,o,o,o,o,o,o,!0,B.V,o,B.Z,o,o,o,o),o),new A.aM(110,o,A.dy(o,B.L,!1,o,!0,B.q,o,A.dG(),k,o,o,o,o,o,2,B.vP,B.P,!0,o,!0,o,!1,o,B.ae,o,o,o,o,o,o,o,o,o,1,o,o,!1,"\u2022",o,o,o,new A.aUy(p),o,!1,o,o,!1,o,!0,o,B.ah,o,o,o,o,o,o,o,o,o,o,o,o,!0,B.V,o,B.Z,o,o,o,o),o),A.j5(B.ok,B.avL,B.at3,p.gaAD(),o)],j),B.ck,14,14)],j)
 if(p.w){s=A.a([B.e6],j)
 if(m!=null)r=m.a==null&&m.b==null
 else r=!0
@@ -78996,7 +78996,7 @@ $S:10}
 A.a4T.prototype={
 F(a){var s,r,q,p,o,n=null,m=A.x(a),l=$.wL,k=new A.aVY(m),j=l.e
 j=l.gGy()?"Bundled prices of "+j:"Your prices of "+j+", set in Settings"
-s=A.aus(B.atE,n,new A.aVX(a),n)
+s=A.aus(B.atD,n,new A.aVX(a),n)
 r=t.p
 k=A.dA(B.al,A.a([k.$3("Copper",l.a,B.MN),k.$3("Aluminium",l.b,B.NP),k.$3("Steel (HR coil)",l.c,B.MM),k.$3("Zinc",l.d,B.O0)],r),B.b3,12,12)
 q=m.ok.Q
@@ -141172,14 +141172,14 @@ B.a_p=s([1,2,4,8,16,32,64,128,27,54,108,216,171,77,154,47,94,188,99,198,151,53,1
 B.a_q=s([65533],t.t)
 B.a_s=s([66,90,104],t.t)
 B.ou=s([40,191,78,94,78,117,138,65,100,0,78,86,255,250,1,8,46,46,0,182,208,104,62,128,47,12,169,254,100,83,105,122],t.t)
-B.at6=new A.aB("Size, sq mm",null,null,null,null,null,null,null,null)
-B.OT=new A.qR(B.at6,!1)
-B.asS=new A.aB("Rating in air, A",null,null,null,null,null,null,null,null)
-B.OS=new A.qR(B.asS,!0)
-B.atG=new A.aB("After derating, A",null,null,null,null,null,null,null,null)
-B.OU=new A.qR(B.atG,!0)
-B.atP=new A.aB("Voltage drop, %",null,null,null,null,null,null,null,null)
-B.OW=new A.qR(B.atP,!0)
+B.at5=new A.aB("Size, sq mm",null,null,null,null,null,null,null,null)
+B.OT=new A.qR(B.at5,!1)
+B.asR=new A.aB("Rating in air, A",null,null,null,null,null,null,null,null)
+B.OS=new A.qR(B.asR,!0)
+B.atF=new A.aB("After derating, A",null,null,null,null,null,null,null,null)
+B.OU=new A.qR(B.atF,!0)
+B.atO=new A.aB("Voltage drop, %",null,null,null,null,null,null,null,null)
+B.OW=new A.qR(B.atO,!0)
 B.au7=new A.aB("",null,null,null,null,null,null,null,null)
 B.OV=new A.qR(B.au7,!1)
 B.w8=s([B.OT,B.OS,B.OU,B.OW,B.OV],A.aC("u<qR>"))
@@ -141273,14 +141273,14 @@ B.a0p=s([6.43023796,2.98020421],t.n)
 B.w9=s([B.a0n,B.ZJ,B.a2G,B.a2L,B.a_T,B.a08,B.a1e,B.a0w,B.a12,B.a0_,B.a0p],t.zg)
 B.a_L=s([5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5],t.t)
 B.a_M=s(["Supply Rate (\u20b9)","Margin %","Supply Unit Price (\u20b9)","Supply Amount (\u20b9)","Service Rate (\u20b9)","Service Unit Price (\u20b9)","Service Amount (\u20b9)","Total Amount (\u20b9)","Price Brand","Review"],t.s)
-B.ate=new A.aB("Paise",null,null,null,null,null,null,null,null)
-B.KC=new A.dR(0,null,B.ate,null,t.dl)
-B.atY=new A.aB("\u20b91",null,null,null,null,null,null,null,null)
-B.KB=new A.dR(1,null,B.atY,null,t.dl)
-B.atU=new A.aB("\u20b910",null,null,null,null,null,null,null,null)
-B.Kx=new A.dR(10,null,B.atU,null,t.dl)
-B.ata=new A.aB("\u20b9100",null,null,null,null,null,null,null,null)
-B.Ky=new A.dR(100,null,B.ata,null,t.dl)
+B.atd=new A.aB("Paise",null,null,null,null,null,null,null,null)
+B.KC=new A.dR(0,null,B.atd,null,t.dl)
+B.atX=new A.aB("\u20b91",null,null,null,null,null,null,null,null)
+B.KB=new A.dR(1,null,B.atX,null,t.dl)
+B.atT=new A.aB("\u20b910",null,null,null,null,null,null,null,null)
+B.Kx=new A.dR(10,null,B.atT,null,t.dl)
+B.at9=new A.aB("\u20b9100",null,null,null,null,null,null,null,null)
+B.Ky=new A.dR(100,null,B.at9,null,t.dl)
 B.a_O=s([B.KC,B.KB,B.Kx,B.Ky],A.aC("u<dR<o>>"))
 B.ahN=new A.n("Clean Up Conversation",null)
 B.a_P=s([B.ahN],t.yW)
@@ -141355,17 +141355,17 @@ B.lz=new A.aB("Delete",null,null,null,null,null,null,null,null)
 B.Zl=new A.fL(B.WW,B.lz,null,null,null,null,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9r=new A.fN("delete",!0,B.Zl,null,t.wI)
 B.a0f=s([B.a9v,B.a9s,B.a9r],t.Do)
-B.at3=new A.aB("3-phase 415 V",null,null,null,null,null,null,null,null)
-B.Ku=new A.dR(!0,null,B.at3,null,t.Mt)
-B.asP=new A.aB("1-phase 230 V",null,null,null,null,null,null,null,null)
-B.Kv=new A.dR(!1,null,B.asP,null,t.Mt)
+B.at2=new A.aB("3-phase 415 V",null,null,null,null,null,null,null,null)
+B.Ku=new A.dR(!0,null,B.at2,null,t.Mt)
+B.asO=new A.aB("1-phase 230 V",null,null,null,null,null,null,null,null)
+B.Kv=new A.dR(!1,null,B.asO,null,t.Mt)
 B.a0h=s([B.Ku,B.Kv],t.st)
 B.wd=s([1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-1,-1,-1,-1,-1],t.t)
 B.a0i=s([700,4338,1300,1800,1500],t.t)
 B.au4=new A.aB("Copper",null,null,null,null,null,null,null,null)
 B.KE=new A.dR(!0,null,B.au4,null,t.Mt)
-B.at0=new A.aB("Aluminium",null,null,null,null,null,null,null,null)
-B.KH=new A.dR(!1,null,B.at0,null,t.Mt)
+B.at_=new A.aB("Aluminium",null,null,null,null,null,null,null,null)
+B.KH=new A.dR(!1,null,B.at_,null,t.Mt)
 B.a0l=s([B.KE,B.KH],t.st)
 B.we=s([B.d8,B.fL,B.om,B.ia],A.aC("u<hT>"))
 B.ajb=new A.n("Download Preferences",null)
@@ -141423,11 +141423,11 @@ B.a0y=s(["File","Home","Send / Receive","Folder","View","Help"],t.s)
 B.wk=s([0,21,51,121,151,191,271,321,360],t.n)
 B.eQ=s([0,79764919,159529838,222504665,319059676,398814059,445009330,507990021,638119352,583659535,797628118,726387553,890018660,835552979,1015980042,944750013,1276238704,1221641927,1167319070,1095957929,1595256236,1540665371,1452775106,1381403509,1780037320,1859660671,1671105958,1733955601,2031960084,2111593891,1889500026,1952343757,2552477408,2632100695,2443283854,2506133561,2334638140,2414271883,2191915858,2254759653,3190512472,3135915759,3081330742,3009969537,2905550212,2850959411,2762807018,2691435357,3560074640,3505614887,3719321342,3648080713,3342211916,3287746299,3467911202,3396681109,4063920168,4143685023,4223187782,4286162673,3779000052,3858754371,3904687514,3967668269,881225847,809987520,1023691545,969234094,662832811,591600412,771767749,717299826,311336399,374308984,453813921,533576470,25881363,88864420,134795389,214552010,2023205639,2086057648,1897238633,1976864222,1804852699,1867694188,1645340341,1724971778,1587496639,1516133128,1461550545,1406951526,1302016099,1230646740,1142491917,1087903418,2896545431,2825181984,2770861561,2716262478,3215044683,3143675388,3055782693,3001194130,2326604591,2389456536,2200899649,2280525302,2578013683,2640855108,2418763421,2498394922,3769900519,3832873040,3912640137,3992402750,4088425275,4151408268,4197601365,4277358050,3334271071,3263032808,3476998961,3422541446,3585640067,3514407732,3694837229,3640369242,1762451694,1842216281,1619975040,1682949687,2047383090,2127137669,1938468188,2001449195,1325665622,1271206113,1183200824,1111960463,1543535498,1489069629,1434599652,1363369299,622672798,568075817,748617968,677256519,907627842,853037301,1067152940,995781531,51762726,131386257,177728840,240578815,269590778,349224269,429104020,491947555,4046411278,4126034873,4172115296,4234965207,3794477266,3874110821,3953728444,4016571915,3609705398,3555108353,3735388376,3664026991,3290680682,3236090077,3449943556,3378572211,3174993278,3120533705,3032266256,2961025959,2923101090,2868635157,2813903052,2742672763,2604032198,2683796849,2461293480,2524268063,2284983834,2364738477,2175806836,2238787779,1569362073,1498123566,1409854455,1355396672,1317987909,1246755826,1192025387,1137557660,2072149281,2135122070,1912620623,1992383480,1753615357,1816598090,1627664531,1707420964,295390185,358241886,404320391,483945776,43990325,106832002,186451547,266083308,932423249,861060070,1041341759,986742920,613929101,542559546,756411363,701822548,3316196985,3244833742,3425377559,3370778784,3601682597,3530312978,3744426955,3689838204,3819031489,3881883254,3928223919,4007849240,4037393693,4100235434,4180117107,4259748804,2310601993,2373574846,2151335527,2231098320,2596047829,2659030626,2470359227,2550115596,2947551409,2876312838,2788305887,2733848168,3165939309,3094707162,3040238851,2985771188],t.t)
 B.Xr=new A.b4(B.uS,null,null,null,null)
-B.atc=new A.aB("Auto",null,null,null,null,null,null,null,null)
-B.KI=new A.dR(!0,B.Xr,B.atc,null,t.Mt)
+B.atb=new A.aB("Auto",null,null,null,null,null,null,null,null)
+B.KI=new A.dR(!0,B.Xr,B.atb,null,t.Mt)
 B.WO=new A.b4(B.vl,null,null,null,null)
-B.atb=new A.aB("Manual",null,null,null,null,null,null,null,null)
-B.KA=new A.dR(!1,B.WO,B.atb,null,t.Mt)
+B.ata=new A.aB("Manual",null,null,null,null,null,null,null,null)
+B.KA=new A.dR(!1,B.WO,B.ata,null,t.Mt)
 B.wl=s([B.KI,B.KA],t.st)
 B.a0F=s(["Others"],t.s)
 B.wm=s([23,114,69,56,80,144],t.t)
@@ -141572,14 +141572,14 @@ B.azf=new A.pV(B.Ij,B.Ii)
 B.a1r=s([B.azd,B.azg,B.aze,B.azf],A.aC("u<pV>"))
 B.a1t=s([25,63,100,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000],t.n)
 B.pb=new A.nk(1,"sldOnly")
-B.at8=new A.aB("SLD panels",null,null,null,null,null,null,null,null)
-B.KD=new A.dR(B.pb,null,B.at8,null,t.HD)
+B.at7=new A.aB("SLD panels",null,null,null,null,null,null,null,null)
+B.KD=new A.dR(B.pb,null,B.at7,null,t.HD)
 B.pc=new A.nk(2,"boqOnly")
-B.asV=new A.aB("BOQ list",null,null,null,null,null,null,null,null)
-B.Kw=new A.dR(B.pc,null,B.asV,null,t.HD)
+B.asU=new A.aB("BOQ list",null,null,null,null,null,null,null,null)
+B.Kw=new A.dR(B.pc,null,B.asU,null,t.HD)
 B.pa=new A.nk(0,"both")
-B.atI=new A.aB("Both",null,null,null,null,null,null,null,null)
-B.Kt=new A.dR(B.pa,null,B.atI,null,t.HD)
+B.atH=new A.aB("Both",null,null,null,null,null,null,null,null)
+B.Kt=new A.dR(B.pa,null,B.atH,null,t.HD)
 B.a1v=s([B.KD,B.Kw,B.Kt],A.aC("u<dR<nk>>"))
 B.a1w=s(["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"],t.s)
 B.a1x=s([B.aA,B.dT],t.c)
@@ -141682,8 +141682,8 @@ B.HS=new A.aB("Log in",null,null,null,null,null,null,null,null)
 B.KJ=new A.dR(!1,B.XG,B.HS,null,t.Mt)
 B.Tq=new A.E(58515,"MaterialIcons",null,!1)
 B.WC=new A.b4(B.Tq,null,null,null,null)
-B.atr=new A.aB("Sign up",null,null,null,null,null,null,null,null)
-B.Kz=new A.dR(!0,B.WC,B.atr,null,t.Mt)
+B.atq=new A.aB("Sign up",null,null,null,null,null,null,null,null)
+B.Kz=new A.dR(!0,B.WC,B.atq,null,t.Mt)
 B.a2V=s([B.KJ,B.Kz],t.st)
 B.Pn=new A.bj("dist","Distance to the target",20,"m",null,"Camera")
 B.aiT=new A.n("Detect (25 px/m)",25)
@@ -143022,12 +143022,12 @@ B.a8r=new A.al(B.RS,B.ew,null)
 B.Ra=new A.a9(0,24,0,24)
 B.a8s=new A.al(B.Ra,B.ew,null)
 B.RX=new A.a9(40,40,40,40)
-B.atK=new A.aB("No projects match your search or filter.",null,null,null,null,null,null,null,null)
-B.Ma=new A.kJ(B.am,null,null,B.atK,null)
+B.atJ=new A.aB("No projects match your search or filter.",null,null,null,null,null,null,null,null)
+B.Ma=new A.kJ(B.am,null,null,B.atJ,null)
 B.a8t=new A.al(B.RX,B.Ma,null)
 B.a8u=new A.al(B.nr,B.tU,null)
-B.atT=new A.aB("Reading your supplier list...",null,null,null,null,null,null,null,null)
-B.a8v=new A.al(B.uc,B.atT,null)
+B.atS=new A.aB("Reading your supplier list...",null,null,null,null,null,null,null,null)
+B.a8v=new A.al(B.uc,B.atS,null)
 B.Lw=new A.Xx()
 B.a5q=new A.d7([B.ay,B.Lw,B.a7,B.jn,B.b9,B.jn,B.bB,B.hy,B.bA,B.hy],A.aC("d7<i_,kX>"))
 B.a8x=new A.Io(B.a5q)
@@ -143072,12 +143072,12 @@ B.a9j=new A.AS(3,"scale")
 B.a9k=new A.AS(4,"unknown")
 B.pm=new A.Iz(null)
 B.Xb=new A.b4(B.vh,null,null,null,null)
-B.asN=new A.aB("Reply",null,null,null,null,null,null,null,null)
-B.Zh=new A.fL(B.Xb,B.asN,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
+B.asM=new A.aB("Reply",null,null,null,null,null,null,null,null)
+B.Zh=new A.fL(B.Xb,B.asM,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9l=new A.fN("reply",!0,B.Zh,null,t.wI)
 B.WV=new A.b4(B.uR,null,null,null,null)
-B.atk=new A.aB("Archive",null,null,null,null,null,null,null,null)
-B.Zn=new A.fL(B.WV,B.atk,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
+B.atj=new A.aB("Archive",null,null,null,null,null,null,null,null)
+B.Zn=new A.fL(B.WV,B.atj,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9m=new A.fN("archive",!0,B.Zn,null,t.wI)
 B.Tm=new A.E(58291,"MaterialIcons",null,!1)
 B.X2=new A.b4(B.Tm,null,null,null,null)
@@ -143092,17 +143092,17 @@ B.asD=new A.aB("Junk",null,null,null,null,null,null,null,null)
 B.Zb=new A.fL(B.X5,B.asD,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9u=new A.fN("junk",!0,B.Zb,null,t.wI)
 B.Xs=new A.b4(B.uX,null,null,null,null)
-B.atg=new A.aB("Move to Inbox",null,null,null,null,null,null,null,null)
-B.Zg=new A.fL(B.Xs,B.atg,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
+B.atf=new A.aB("Move to Inbox",null,null,null,null,null,null,null,null)
+B.Zg=new A.fL(B.Xs,B.atf,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9w=new A.fN("inbox",!0,B.Zg,null,t.wI)
 B.WG=new A.b4(B.v8,null,null,null,null)
-B.asQ=new A.aB("Forward",null,null,null,null,null,null,null,null)
-B.Zk=new A.fL(B.WG,B.asQ,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
+B.asP=new A.aB("Forward",null,null,null,null,null,null,null,null)
+B.Zk=new A.fL(B.WG,B.asP,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9x=new A.fN("forward",!0,B.Zk,null,t.wI)
 B.Ur=new A.E(983293,"MaterialIcons",null,!0)
 B.WK=new A.b4(B.Ur,null,null,null,null)
-B.atd=new A.aB("Reply All",null,null,null,null,null,null,null,null)
-B.Zd=new A.fL(B.WK,B.atd,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
+B.atc=new A.aB("Reply All",null,null,null,null,null,null,null,null)
+B.Zd=new A.fL(B.WK,B.atc,null,null,null,!0,null,null,null,null,null,!0,null,null,!1,null,null,null,!1,null,null,null,null,null,null,null,null,!0,null,null)
 B.a9y=new A.fN("replyAll",!0,B.Zd,null,t.wI)
 B.a9z=new A.Xt(0,"over")
 B.a9A=new A.Xt(1,"under")
@@ -144059,8 +144059,8 @@ B.q_=new A.aH(B.il,!1,!0,!1,!1,B.C)
 B.amC=new A.aH(B.eZ,!0,!0,!1,!1,B.c9)
 B.amD=new A.aH(B.ig,!1,!1,!1,!0,B.C)
 B.amE=new A.aH(B.eV,!0,!1,!1,!1,B.ca)
-B.at1=new A.aB("This mailbox is your Gmail account. It shows RFQ mail only: emails sent from the RFQ window and mail from the addresses in your supplier list (File > All Gmail shows everything).\n\nInbox, Drafts, Sent Items, Deleted Items and Junk Email are the same as in Gmail. Archive holds the emails you archive here. Outbox holds emails scheduled to send later in Gmail.\n\nReply, Reply All and Forward open a window to write the email; nothing is sent until you click Send. Attached files are saved in your Drive in the folder Estimation RFQ.",null,null,null,null,null,null,null,null)
-B.amF=new A.Ka(B.a2,null,null,B.at1,null)
+B.at0=new A.aB("This mailbox is your Gmail account. It shows RFQ mail only: emails sent from the RFQ window and mail from the addresses in your supplier list (File > All Gmail shows everything).\n\nInbox, Drafts, Sent Items, Deleted Items and Junk Email are the same as in Gmail. Archive holds the emails you archive here. Outbox holds emails scheduled to send later in Gmail.\n\nReply, Reply All and Forward open a window to write the email; nothing is sent until you click Send. Attached files are saved in your Drive in the folder Estimation RFQ.",null,null,null,null,null,null,null,null)
+B.amF=new A.Ka(B.a2,null,null,B.at0,null)
 B.amG=new A.I(0,40)
 B.q0=new A.I(0,44)
 B.amH=new A.I(1e5,1e5)
@@ -144097,8 +144097,10 @@ B.cT=new A.aM(8,null,null,null)
 B.an_=new A.aM(1/0,1/0,null,null)
 B.Me=new A.uM(2,null,null,B.j,null,null,null,null)
 B.an0=new A.aM(18,18,B.Me,null)
-B.at5=new A.aB("Drawings, extracted items and Excel files are read in this browser and never saved. Only project details (name, client, pricing settings) are kept in your own Google Sheet. RFQ attachments you send are saved in your Google Drive.",null,null,null,null,null,null,null,null)
-B.an1=new A.aM(480,null,B.at5,null)
+B.au2=new A.aB("1. Create a project and pick what you are uploading: BOQ, SLD, tender or specification.\n2. Add your files. They are read in this browser.\n3. Start Working (BOQ) or Upload & process (drawings). Rows are priced from market prices, your own price database, or computed from design parameters and metal prices, and each one says where its price came from.\n4. Check the rates, margin, discount, transport and accessories, then download the priced BOQ in Excel or the offer package.\n5. Send requests for quote to suppliers from the Mailbox.\n\nPress Ctrl+K anywhere to jump to a page, a tool or an action.",null,null,null,null,null,null,null,null)
+B.an1=new A.aM(480,null,B.au2,null)
+B.at4=new A.aB("Drawings, extracted items and Excel files are read in this browser and never saved. Only project details (name, client, pricing settings) are kept in your own Google Sheet. RFQ attachments you send are saved in your Google Drive.",null,null,null,null,null,null,null,null)
+B.an2=new A.aM(480,null,B.at4,null)
 B.aN=new A.aM(null,10,null,null)
 B.b1=new A.aM(null,12,null,null)
 B.iW=new A.aM(null,14,null,null)
@@ -144110,16 +144112,14 @@ B.f8=new A.aM(null,24,null,null)
 B.Hi=new A.aM(null,28,null,null)
 B.Hj=new A.aM(null,2,null,null)
 B.e7=new A.aM(null,4,null,null)
-B.an2=new A.aM(null,5,null,null)
+B.an3=new A.aM(null,5,null,null)
 B.bQ=new A.aM(null,6,null,null)
 B.as=new A.aM(null,8,null,null)
 B.q7=new A.aM(null,null,null,null)
 B.mG=new A.uM(2,null,null,null,null,null,null,null)
 B.Hk=new A.aM(18,18,B.mG,null)
 B.Hl=new A.aM(16,16,B.mG,null)
-B.an3=new A.aM(26,26,B.mG,null)
-B.asM=new A.aB("1. Create a project and pick what you are uploading: BOQ, SLD, tender or specification.\n2. Add your files. They are read in this browser.\n3. Match prices (BOQ) or Upload & process (drawings). Rows are priced from market prices, your own price database, or computed from design parameters and metal prices, and each one says where its price came from.\n4. Check the rates, margin, discount, transport and accessories, then download the priced BOQ in Excel or the offer package.\n5. Send requests for quote to suppliers from the Mailbox.\n\nPress Ctrl+K anywhere to jump to a page, a tool or an action.",null,null,null,null,null,null,null,null)
-B.an4=new A.aM(480,null,B.asM,null)
+B.an4=new A.aM(26,26,B.mG,null)
 B.an5=new A.Ke(2,null)
 B.Hm=new A.Ke(3,null)
 B.an6=new A.te(10,120,8,null)
@@ -144141,28 +144141,28 @@ B.and=new A.mk(3,"hide")
 B.aBy=new A.mk(4,"remove")
 B.ane=new A.mk(5,"timeout")
 B.anf=new A.BH(null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.at7=new A.aB("Open a project and process its files first; then Price current BOQ sends its BOQ to the AI agent.",null,null,null,null,null,null,null,null)
-B.ang=new A.hZ(B.at7,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.aty=new A.aB("Choose the supplier list workbook (.xlsx).",null,null,null,null,null,null,null,null)
-B.anh=new A.hZ(B.aty,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.atm=new A.aB("The AI pricing agent is not available on this page. Reload the website and log in again.",null,null,null,null,null,null,null,null)
-B.lo=new A.hZ(B.atm,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.atj=new A.aB("Choose the price database workbook (.xlsx).",null,null,null,null,null,null,null,null)
-B.ani=new A.hZ(B.atj,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.ato=new A.aB("Saved in the Outbox. Click Send All (Send / Receive) to send it.",null,null,null,null,null,null,null,null)
-B.anj=new A.hZ(B.ato,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.atq=new A.aB("Log in to use the AI pricing agent.",null,null,null,null,null,null,null,null)
-B.ank=new A.hZ(B.atq,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.asX=new A.aB("Enter all four prices in rupees per kg.",null,null,null,null,null,null,null,null)
-B.anl=new A.hZ(B.asX,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.asY=new A.aB("First choose what you are uploading in step 1: BOQ, SLD, Tender or Specification.",null,null,null,null,null,null,null,null)
-B.anm=new A.hZ(B.asY,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.ati=new A.aB("The address must start with https://",null,null,null,null,null,null,null,null)
-B.ann=new A.hZ(B.ati,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.att=new A.aB("Saved. Computed prices now use these metal prices.",null,null,null,null,null,null,null,null)
-B.ano=new A.hZ(B.att,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
-B.asZ=new A.aB("Saved",null,null,null,null,null,null,null,null)
-B.anp=new A.hZ(B.asZ,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.at6=new A.aB("Open a project and process its files first; then Price current BOQ sends its BOQ to the AI agent.",null,null,null,null,null,null,null,null)
+B.ang=new A.hZ(B.at6,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.atx=new A.aB("Choose the supplier list workbook (.xlsx).",null,null,null,null,null,null,null,null)
+B.anh=new A.hZ(B.atx,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.atl=new A.aB("The AI pricing agent is not available on this page. Reload the website and log in again.",null,null,null,null,null,null,null,null)
+B.lo=new A.hZ(B.atl,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.ati=new A.aB("Choose the price database workbook (.xlsx).",null,null,null,null,null,null,null,null)
+B.ani=new A.hZ(B.ati,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.atn=new A.aB("Saved in the Outbox. Click Send All (Send / Receive) to send it.",null,null,null,null,null,null,null,null)
+B.anj=new A.hZ(B.atn,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.atp=new A.aB("Log in to use the AI pricing agent.",null,null,null,null,null,null,null,null)
+B.ank=new A.hZ(B.atp,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.asW=new A.aB("Enter all four prices in rupees per kg.",null,null,null,null,null,null,null,null)
+B.anl=new A.hZ(B.asW,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.asX=new A.aB("First choose what you are uploading in step 1: BOQ, SLD, Tender or Specification.",null,null,null,null,null,null,null,null)
+B.anm=new A.hZ(B.asX,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.ath=new A.aB("The address must start with https://",null,null,null,null,null,null,null,null)
+B.ann=new A.hZ(B.ath,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.ats=new A.aB("Saved. Computed prices now use these metal prices.",null,null,null,null,null,null,null,null)
+B.ano=new A.hZ(B.ats,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
+B.asY=new A.aB("Saved",null,null,null,null,null,null,null,null)
+B.anp=new A.hZ(B.asY,null,null,null,null,null,null,null,null,null,null,null,null,B.af,!1,null,null,null,B.q,null)
 B.Hp=new A.Kq(0,"permissive")
 B.anq=new A.Kq(1,"normal")
 B.anr=new A.Kq(2,"forced")
@@ -144564,51 +144564,51 @@ B.qn=new A.aB("Close",null,null,null,null,null,null,null,null)
 B.asJ=new A.aB("How it works",null,null,null,null,null,null,null,null)
 B.asK=new A.aB("Write request for quote",null,null,null,null,null,null,null,null)
 B.asL=new A.aB("Add switchboard",null,null,null,null,null,null,null,null)
-B.asO=new A.aB("Forgot password?",null,null,null,null,null,null,null,null)
-B.asR=new A.aB("Log out now",null,null,null,null,null,null,null,null)
-B.asT=new A.aB("Show older emails",null,null,null,null,null,null,null,null)
-B.asU=new A.aB("Requests for quote (RFQ)",null,null,null,null,null,null,null,null)
-B.asW=new A.aB("Add item",null,null,null,null,null,null,null,null)
-B.at_=new A.aB("Fill rows with no web price with an estimate",null,null,null,null,null,null,null,null)
+B.asN=new A.aB("Forgot password?",null,null,null,null,null,null,null,null)
+B.asQ=new A.aB("Log out now",null,null,null,null,null,null,null,null)
+B.asS=new A.aB("Show older emails",null,null,null,null,null,null,null,null)
+B.asT=new A.aB("Requests for quote (RFQ)",null,null,null,null,null,null,null,null)
+B.asV=new A.aB("Add item",null,null,null,null,null,null,null,null)
+B.asZ=new A.aB("Fill rows with no web price with an estimate",null,null,null,null,null,null,null,null)
 B.HR=new A.aB("Try again",null,null,null,null,null,null,null,null)
-B.at2=new A.aB("Open tools",null,null,null,null,null,null,null,null)
-B.at4=new A.aB("Find price",null,null,null,null,null,null,null,null)
-B.at9=new A.aB("Go to projects",null,null,null,null,null,null,null,null)
-B.atf=new A.aB("Save From, Replies to and Cc as default",null,null,null,null,null,null,null,null)
-B.ath=new A.aB("Include lines that name a rating or make but no quantity (quantity left blank).",null,null,null,null,null,null,null,null)
+B.at1=new A.aB("Open tools",null,null,null,null,null,null,null,null)
+B.at3=new A.aB("Find price",null,null,null,null,null,null,null,null)
+B.at8=new A.aB("Go to projects",null,null,null,null,null,null,null,null)
+B.ate=new A.aB("Save From, Replies to and Cc as default",null,null,null,null,null,null,null,null)
+B.atg=new A.aB("Include lines that name a rating or make but no quantity (quantity left blank).",null,null,null,null,null,null,null,null)
 B.he=new A.aB("Cancel",null,null,null,null,null,null,null,null)
-B.atl=new A.aB("Search prices online (Google, ChatGPT)",null,null,null,null,null,null,null,null)
-B.atn=new A.aB("Delete project?",null,null,null,null,null,null,null,null)
-B.atp=new A.aB("All projects",null,null,null,null,null,null,null,null)
-B.ats=new A.aB("Keep items without a quantity",null,null,null,null,null,null,null,null)
-B.atu=new A.aB("Search prices online",null,null,null,null,null,null,null,null)
-B.atv=new A.aB("Review & edit items",null,null,null,null,null,null,null,null)
-B.atw=new A.aB("Untick all",null,null,null,null,null,null,null,null)
-B.atx=new A.aB("Use",null,null,null,null,null,null,null,null)
-B.atz=new A.aB("Item deleted",null,null,null,null,null,null,null,null)
-B.atA=new A.aB("RFQ mailbox",null,null,null,null,null,null,null,null)
-B.atB=new A.aB("Save metal prices",null,null,null,null,null,null,null,null)
-B.atC=new A.aB("New project",null,null,null,null,null,null,null,null)
-B.atD=new A.aB("Download panel offer (Word)",null,null,null,null,null,null,null,null)
-B.atE=new A.aB("Change in Settings",null,null,null,null,null,null,null,null)
-B.atF=new A.aB("Open-source licences",null,null,null,null,null,null,null,null)
-B.atH=new A.aB("Confirm terms",null,null,null,null,null,null,null,null)
-B.atJ=new A.aB("Stay signed in",null,null,null,null,null,null,null,null)
-B.atL=new A.aB("Prices include GST",null,null,null,null,null,null,null,null)
-B.atM=new A.aB("Add feeder",null,null,null,null,null,null,null,null)
-B.atN=new A.aB("Save details",null,null,null,null,null,null,null,null)
-B.atO=new A.aB("Privacy",null,null,null,null,null,null,null,null)
-B.atQ=new A.aB("Chosen suppliers' items",null,null,null,null,null,null,null,null)
-B.atR=new A.aB("Download offer (Word)",null,null,null,null,null,null,null,null)
-B.atS=new A.aB("Download SLD Excel (DBs, breakers, cables)",null,null,null,null,null,null,null,null)
-B.atV=new A.aB("Send on WhatsApp",null,null,null,null,null,null,null,null)
-B.atW=new A.aB("Switchboard",null,null,null,null,null,null,null,null)
-B.atX=new A.aB("Tick all",null,null,null,null,null,null,null,null)
-B.atZ=new A.aB("Open the file in Drive",null,null,null,null,null,null,null,null)
-B.au_=new A.aB("Download for Tally (XML)",null,null,null,null,null,null,null,null)
-B.au0=new A.aB("Attach files",null,null,null,null,null,null,null,null)
-B.au1=new A.aB("Download Annexure A: bill of materials and feeder list (Excel)",null,null,null,null,null,null,null,null)
-B.au2=new A.aB("Choose a category",null,null,null,null,null,null,null,null)
+B.atk=new A.aB("Search prices online (Google, ChatGPT)",null,null,null,null,null,null,null,null)
+B.atm=new A.aB("Delete project?",null,null,null,null,null,null,null,null)
+B.ato=new A.aB("All projects",null,null,null,null,null,null,null,null)
+B.atr=new A.aB("Keep items without a quantity",null,null,null,null,null,null,null,null)
+B.att=new A.aB("Search prices online",null,null,null,null,null,null,null,null)
+B.atu=new A.aB("Review & edit items",null,null,null,null,null,null,null,null)
+B.atv=new A.aB("Untick all",null,null,null,null,null,null,null,null)
+B.atw=new A.aB("Use",null,null,null,null,null,null,null,null)
+B.aty=new A.aB("Item deleted",null,null,null,null,null,null,null,null)
+B.atz=new A.aB("RFQ mailbox",null,null,null,null,null,null,null,null)
+B.atA=new A.aB("Save metal prices",null,null,null,null,null,null,null,null)
+B.atB=new A.aB("New project",null,null,null,null,null,null,null,null)
+B.atC=new A.aB("Download panel offer (Word)",null,null,null,null,null,null,null,null)
+B.atD=new A.aB("Change in Settings",null,null,null,null,null,null,null,null)
+B.atE=new A.aB("Open-source licences",null,null,null,null,null,null,null,null)
+B.atG=new A.aB("Confirm terms",null,null,null,null,null,null,null,null)
+B.atI=new A.aB("Stay signed in",null,null,null,null,null,null,null,null)
+B.atK=new A.aB("Prices include GST",null,null,null,null,null,null,null,null)
+B.atL=new A.aB("Add feeder",null,null,null,null,null,null,null,null)
+B.atM=new A.aB("Save details",null,null,null,null,null,null,null,null)
+B.atN=new A.aB("Privacy",null,null,null,null,null,null,null,null)
+B.atP=new A.aB("Chosen suppliers' items",null,null,null,null,null,null,null,null)
+B.atQ=new A.aB("Download offer (Word)",null,null,null,null,null,null,null,null)
+B.atR=new A.aB("Download SLD Excel (DBs, breakers, cables)",null,null,null,null,null,null,null,null)
+B.atU=new A.aB("Send on WhatsApp",null,null,null,null,null,null,null,null)
+B.atV=new A.aB("Switchboard",null,null,null,null,null,null,null,null)
+B.atW=new A.aB("Tick all",null,null,null,null,null,null,null,null)
+B.atY=new A.aB("Open the file in Drive",null,null,null,null,null,null,null,null)
+B.atZ=new A.aB("Download for Tally (XML)",null,null,null,null,null,null,null,null)
+B.au_=new A.aB("Attach files",null,null,null,null,null,null,null,null)
+B.au0=new A.aB("Download Annexure A: bill of materials and feeder list (Excel)",null,null,null,null,null,null,null,null)
+B.au1=new A.aB("Choose a category",null,null,null,null,null,null,null,null)
 B.au3=new A.aB("OK",null,null,null,null,null,null,null,null)
 B.au5=new A.aB("Back to download",null,null,null,null,null,null,null,null)
 B.au6=new A.aB("The supplier list and mail settings are on the RFQ tab.",null,null,null,null,null,null,null,null)
