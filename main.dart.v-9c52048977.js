@@ -67619,7 +67619,7 @@ s=A.bbB(B.aO)
 r=A.bbB(B.aN)
 q=p.d
 if(q===$)q=p.d=new A.DG(p.gatC(),new A.be(null,t.fG),$.a5())
-return new A.DH(n,m,o,new A.GA(p.e,q,new A.aMM(p),"Estimation: BOQ to Excel",s,r,!1,null),null)}}
+return new A.DH(n,m,o,new A.GA(p.e,q,new A.aMM(p),"Arzimate: BOQ to Excel",s,r,!1,null),null)}}
 A.aME.prototype={
 $1(a){return a.length!==0},
 $S:2}
@@ -69772,7 +69772,7 @@ q=A.bq(a,B.bz,t.w).w
 h=A.a([],p)
 j=!(q.a.a>=900)
 if(j){i=i.r
-B.b.J(h,A.a([B.a2r,B.aB,A.C("Estimation: BOQ to Excel",l,l,l,l,i==null?l:i.dL(B.aa),l,l),B.ajR],p))}h.push(new A.db(B.J5,r,l))
+B.b.J(h,A.a([B.a2r,B.aB,A.C("Arzimate: BOQ to Excel",l,l,l,l,i==null?l:i.dL(B.aa),l,l),B.ajR],p))}h.push(new A.db(B.J5,r,l))
 n=A.w9(!0,A.eL(A.jY(A.aL(h,B.x,l,B.h,B.l),l,B.tJ,B.a5),l,l),B.S,!0)
 if(j)return A.Av(l,n,l)
 return A.Av(l,A.bg(A.a([B.QV,A.bD(n,6)],p),B.x,B.h,B.l,0,l),l)}}
@@ -69792,8 +69792,8 @@ A.aIv.prototype={
 $0(){return this.a.d=!0},
 $S:0}
 A.Rw.prototype={
-I(a){var s,r=null,q=A.x(a),p=new A.abt(q),o=A.cU(r,B.a2q,B.q,r,r,new A.cs(B.j.dH(0.18),r,r,A.cY(14),r,r,B.a9),r,r,r,B.Qy,r,r,r),n=q.ok,m=n.r,l=t.p
-m=A.bg(A.a([o,B.bs,A.C("Estimation",r,r,r,r,m==null?r:m.kH(B.j,B.aa),r,r)],l),B.x,B.h,B.l,0,r)
+I(a){var s,r=null,q=A.x(a),p=new A.abt(q),o=new A.zn(46,r),n=q.ok,m=n.r,l=t.p
+m=A.bg(A.a([o,B.bs,A.C("Arzimate",r,r,r,r,m==null?r:m.kH(B.j,B.aa),r,r)],l),B.x,B.h,B.l,0,r)
 o=n.c
 o=A.C("Drawings in.\nPriced BOQ out.",r,r,r,r,o==null?r:o.aDf(B.j,B.hD,1.15,-0.8),r,r)
 s=n.w
@@ -69805,7 +69805,7 @@ o.push(p.$3(B.uO,"Prices every item","Market prices or your own rates, with marg
 o.push(p.$3(B.hF,"Files stay with you","Read in your browser, never uploaded or stored."))
 o.push(B.kZ)
 p=n.Q
-o.push(A.C("Estimation: BOQ to Excel",r,r,r,r,p==null?r:p.aw(B.j.dH(0.7)),r,r))
+o.push(A.C("Arzimate: BOQ to Excel",r,r,r,r,p==null?r:p.aw(B.j.dH(0.7)),r,r))
 return A.cU(r,A.aL(o,B.W,r,B.h,B.l),B.q,r,r,B.Jg,r,r,r,B.QE,r,r,r)}}
 A.abt.prototype={
 $3(a,b,c){var s,r,q=null,p=B.j.dH(0.14),o=A.cY(12)
@@ -75348,7 +75348,7 @@ A.b_I.prototype={
 $0(){return A.eo(this.a,t.X).e.eg("/rfq")},
 $S:0}
 A.b_J.prototype={
-$0(){return A.bE1("Estimation",this.a)},
+$0(){return A.bE1("Arzimate",this.a)},
 $S:0}
 A.Nu.prototype={
 a8(){return new A.Nv()}}
@@ -75697,9 +75697,9 @@ return null},
 $S:0}
 A.a7p.prototype={
 gGw(){return B.ajs},
-I(a){var s,r=null,q=A.x(a),p=A.bq(a,B.bz,t.w).w.a.a<600,o=q.ok,n=q.aDi(q.ax.aD5(B.jb,B.j),new A.lv(A.uO(r,r,r,r,r,r,r,B.j,r,r,r,r,r,r,r,r,r)),B.vb,new A.p7(A.wA(r,r,r,r,r,r,r,r,r,r,r,B.j,r,r,r,r,r,r,r,r,r,r,r,r,r,r)),o.aAG(B.j,B.j)),m=p?8:20,l=A.ev(r,r,r,r,B.vk,r,r,B.atg,A.bjY(),r,r,r,r,"Back",r),k=A.ev(r,r,r,r,B.Vr,r,r,B.ath,A.bCm(),r,r,r,r,"Forward",r),j=A.cY(10),i=t.p,h=A.a([A.cU(r,B.a2p,B.q,r,r,new A.cs(B.j.dH(0.18),r,r,A.cY(12),r,r,B.a9),r,r,r,B.Qx,r,r,r),B.GQ],i),g=!p
+I(a){var s,r=null,q=A.x(a),p=A.bq(a,B.bz,t.w).w.a.a<600,o=q.ok,n=q.aDi(q.ax.aD5(B.jb,B.j),new A.lv(A.uO(r,r,r,r,r,r,r,B.j,r,r,r,r,r,r,r,r,r)),B.vb,new A.p7(A.wA(r,r,r,r,r,r,r,r,r,r,r,B.j,r,r,r,r,r,r,r,r,r,r,r,r,r,r)),o.aAG(B.j,B.j)),m=p?8:20,l=A.ev(r,r,r,r,B.vk,r,r,B.atg,A.bjY(),r,r,r,r,"Back",r),k=A.ev(r,r,r,r,B.Vr,r,r,B.ath,A.bCm(),r,r,r,r,"Forward",r),j=A.cY(10),i=t.p,h=A.a([new A.zn(36,r),B.GQ],i),g=!p
 if(g){s=o.w
-s=A.C("Estimation",r,r,r,r,s==null?r:s.a4x(B.j,B.aa,1.1),r,r)
+s=A.C("Arzimate",r,r,r,r,s==null?r:s.a4x(B.j,B.aa,1.1),r,r)
 o=o.ax
 h.push(A.aL(A.a([s,A.C("BOQ to Excel",r,r,r,r,o==null?r:o.aw(B.j.dH(0.75)),r,r)],i),B.W,r,B.fs,B.l))}o=A.a([l,k,B.eS,A.fm(!1,j,!0,new A.au(B.QD,A.bg(h,B.x,B.h,B.l,0,r),r),r,!0,r,r,r,r,r,r,r,r,r,r,new A.b2n(a),r,r,r,r,r,r,r),B.kZ],i)
 if(g)o.push(A.lX(B.Vd,r,B.aq9,new A.b2o(a)))
@@ -75790,8 +75790,8 @@ q=q==null?n:q.kH(l,B.bD)
 p.push(A.C(this.c,n,n,n,n,q,n,n))
 return A.cU(n,A.bg(p,B.x,B.h,B.a8,0,n),B.q,n,n,new A.cs(s,n,n,r,n,n,B.a9),n,n,n,B.tM,n,n,n)}}
 A.zn.prototype={
-I(a){var s=null,r=this.c,q=A.cY(r*0.28)
-return A.cU(s,A.cx(B.SY,B.j,s,r*0.58),B.q,s,s,new A.cs(s,s,s,q,s,B.nZ,B.a9),s,r,s,s,s,s,r)}}
+I(a){var s=null,r=this.c
+return A.cU(s,A.cx(B.SY,B.j,s,r),B.q,s,s,s,s,r,s,s,s,s,r)}}
 A.wL.prototype={
 a8(){return new A.a7l()}}
 A.a7l.prototype={

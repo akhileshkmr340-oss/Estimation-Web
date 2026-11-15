@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/png" href="../favicon.png">
-<title>AI Pricing Agent · Estimation</title>
+<title>AI Pricing Agent · Arzimate</title>
 <meta name="description" content="Upload a client BOQ; the agent prices every line from your past rates, panel offers and AI estimates and returns the workbook with margin columns, Summary and a Backup sheet.">
 <style>
-  /* Opened from the Estimation website's "AI Pricing Agent" button, or on its own.
+  /* Opened from the Arzimate website's "AI Pricing Agent" button, or on its own.
      Same login as the website: it is the same site, so no second sign-in. */
   :root { --bg: #f7f9fc; --card: #ffffff; --text: #1a1c1e; --muted: #5f6b7a; --line: #dde3ea;
     --accent: #1a56db; --accent-text: #ffffff; --ok: #107c41; --warn: #b3261e; --bar: #e6edf5; }
@@ -54,7 +54,7 @@
 <main>
   <section class="card hidden" id="loginCard">
     <h2>Please log in first</h2>
-    <p class="lead">The AI Pricing Agent uses your Estimation account. <a href="../" target="_top">Open the Estimation website</a>, log in, then click <b>AI Pricing Agent</b>.</p>
+    <p class="lead">The AI Pricing Agent uses your Arzimate account. <a href="../" target="_top">Open the Arzimate website</a>, log in, then click <b>AI Pricing Agent</b>.</p>
   </section>
 
   <section class="card hidden" id="startCard">
@@ -128,7 +128,7 @@
   // Firebase callable functions over plain HTTPS, with the user's ID token.
   async function call(name, data) {
     const user = auth.currentUser;
-    if (!user) throw new Error('Please log in on the Estimation website first.');
+    if (!user) throw new Error('Please log in on the Arzimate website first.');
     let res;
     try {
       res = await fetch(FUNCTIONS + name, {
