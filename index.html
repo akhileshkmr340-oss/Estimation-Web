@@ -58,157 +58,242 @@
 <style>
   #front { --navy: #15133a; --navy2: #1f1d4d; --indigo: #2b2870; --brand: #4c3fc4; --brand-hi: #6a5ae0;
     --violet: #a594ff; --teal: #3fd1bd; --blue: #6aa8f0; --coral: #f09a80; --gold: #f2b33d;
-    --page: #f6f6fb; --card: #ffffff; --ink: #1b1a33; --muted: #5b5b78; --line: #e4e3f0;
+    --page: #f6f6fb; --card: #ffffff; --soft: #f0effa; --ink: #1b1a33; --muted: #5b5b78; --line: #e4e3f0;
     position: fixed; inset: 0; z-index: 2147482000; overflow-y: auto; overflow-x: hidden; background: var(--page); color: var(--ink);
-    font: 16px/1.6 Manrope, "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front { --page: #0f0e26; --card: #1a1838; --ink: #ecebff; --muted: #a9a7c9; --line: #2c2a55; } }
-  :root[data-theme="dark"] #front { --page: #0f0e26; --card: #1a1838; --ink: #ecebff; --muted: #a9a7c9; --line: #2c2a55; }
+    font: 16px/1.6 Manrope, "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front { --page: #0f0e26; --card: #1a1838; --soft: #211f45; --ink: #ecebff; --muted: #a9a7c9; --line: #2c2a55; } }
+  :root[data-theme="dark"] #front { --page: #0f0e26; --card: #1a1838; --soft: #211f45; --ink: #ecebff; --muted: #a9a7c9; --line: #2c2a55; }
   #front[hidden] { display: none; }
   #front * { box-sizing: border-box; }
   #front a { color: inherit; }
-  #front .wrap { width: min(1160px, 100% - 32px); margin: 0 auto; }
-  #front .btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 999px; font: 700 15px/1 inherit;
-    font-family: inherit; border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: transform .15s, box-shadow .15s, background .15s; }
-  #front .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
-  #front .btn-gold { background: linear-gradient(180deg, #f7c65a, #f2b33d); color: #241a00; box-shadow: 0 8px 24px rgba(242,179,61,.28); }
-  #front .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(242,179,61,.38); }
-  #front .btn-ghost { background: rgba(255,255,255,.06); color: #fff; border-color: rgba(255,255,255,.22); }
-  #front .btn-ghost:hover { background: rgba(255,255,255,.12); }
-  #front .btn-brand { background: var(--brand); color: #fff; }
-  #front .btn-brand:hover { background: var(--brand-hi); }
-
-  /* Top bar */
-  #front .top { position: sticky; top: 0; z-index: 5; backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px);
-    background: rgba(21,19,58,.78); border-bottom: 1px solid rgba(255,255,255,.08); }
-  #front .top .wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; gap: 16px; }
-  #front .top img { height: 34px; width: auto; display: block; }
-  #front .top nav { display: flex; align-items: center; gap: 26px; }
-  #front .top nav a { color: rgba(255,255,255,.78); text-decoration: none; font-weight: 600; font-size: 15px; }
-  #front .top nav a:hover { color: #fff; }
-  #front .top .login { padding: 10px 18px; font-size: 14px; }
-
-  /* Hero */
-  #front .hero { position: relative; color: #fff; background:
-      radial-gradient(900px 500px at 85% -10%, rgba(165,148,255,.35), transparent 60%),
-      radial-gradient(700px 480px at -10% 110%, rgba(63,209,189,.18), transparent 60%),
-      linear-gradient(160deg, #2b2870 0%, #1f1d4d 45%, #15133a 100%);
-    padding: 72px 0 96px; overflow: hidden; }
-  #front .hero .grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 56px; align-items: center; }
-  #front .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 700;
-    letter-spacing: .02em; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: #e9e6ff; }
-  #front .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px rgba(63,209,189,.2); }
-  #front h1 { font-size: clamp(38px, 5.6vw, 64px); line-height: 1.04; letter-spacing: -.025em; margin: 20px 0 18px; font-weight: 800; }
-  #front h1 span { background: linear-gradient(90deg, #c9bfff, #8fe3d6 60%, #ffd98a); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  #front .lede { font-size: clamp(17px, 1.6vw, 19px); color: rgba(236,234,255,.82); max-width: 560px; margin: 0 0 30px; }
-  #front .cta { display: flex; flex-wrap: wrap; gap: 12px; }
-  #front .ticks { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 26px 0 0; padding: 0; list-style: none; font-size: 14px; color: rgba(236,234,255,.72); }
-  #front .ticks li::before { content: "✓"; color: var(--teal); font-weight: 800; margin-right: 7px; }
-
-  /* Product preview */
-  #front .shot { position: relative; border-radius: 18px; background: rgba(255,255,255,.96); color: #1b1a33; box-shadow: 0 40px 80px rgba(5,4,25,.55), 0 0 0 1px rgba(255,255,255,.2);
-    overflow: hidden; transform: perspective(1400px) rotateY(-6deg) rotateX(2deg); }
-  #front .shot .bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; background: #f1f0f8; border-bottom: 1px solid #e4e3f0; font-size: 12px; color: #5b5b78; }
-  #front .shot .bar b { width: 10px; height: 10px; border-radius: 50%; background: #e4e3f0; }
-  #front .shot .bar span { margin-left: 8px; font-weight: 700; }
-  #front .shot table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  #front .shot th { text-align: left; font-weight: 700; color: #5b5b78; background: #fafaff; padding: 9px 12px; border-bottom: 1px solid #ecebf5; white-space: nowrap; }
-  #front .shot td { padding: 9px 12px; border-bottom: 1px solid #f0eff7; vertical-align: top; }
-  #front .shot td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  #front .shot th.n { text-align: right; }
-  #front .shot .new { background: linear-gradient(90deg, rgba(165,148,255,.10), rgba(165,148,255,.18)); }
-  #front .shot .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; vertical-align: 1px; }
-  #front .tag.db { background: #e6f8f5; color: #0d7a6b; } #front .tag.web { background: #e7f0fd; color: #2459a6; } #front .tag.est { background: #fdeee9; color: #a5492e; }
-  #front .shot tfoot td { font-weight: 800; background: #faf9ff; border-bottom: 0; }
-  #front .shot .note { padding: 9px 12px; font-size: 11.5px; color: #77779a; background: #faf9ff; }
-  #front .float { position: absolute; right: -14px; top: -24px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px;
-    background: #fff; color: #1b1a33; box-shadow: 0 18px 40px rgba(5,4,25,.35); font-size: 13px; font-weight: 700; }
-  #front .float small { display: block; font-weight: 600; color: #6b6b88; }
-  #front .float .dot { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: linear-gradient(135deg, #4c3fc4, #7960dd); color: #fff; }
-
-  /* Strip of inputs */
-  #front .strip { margin-top: -38px; position: relative; z-index: 2; }
-  #front .strip .box { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 14px; padding: 18px 22px; border-radius: 16px;
-    background: var(--card); border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(20,18,60,.08); font-size: 14px; color: var(--muted); }
-  #front .strip .chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); font-weight: 700; color: var(--ink); font-size: 13px; }
-
-  /* Sections */
-  #front section.sec { padding: 92px 0 0; }
-  #front .kicker { font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); }
+  #front .wrap { width: min(1240px, 100% - 48px); margin: 0 auto; }
+  #front .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 15px 26px; border-radius: 999px; font-family: inherit; font-size: 16px; font-weight: 700; line-height: 1;
+    border: 1px solid transparent; cursor: pointer; text-decoration: none; transition: transform .15s, box-shadow .15s, background .15s; white-space: nowrap; }
+  #front .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  #front .btn-gold { background: linear-gradient(180deg, #f8c962, #f2b33d); color: #241a00; box-shadow: 0 10px 28px rgba(242,179,61,.30); }
+  #front .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(242,179,61,.42); }
+  #front .btn-ghost { background: rgba(255,255,255,.07); color: #fff; border-color: rgba(255,255,255,.22); }
+  #front .btn-ghost:hover { background: rgba(255,255,255,.13); }
+  #front .btn-sm { padding: 11px 20px; font-size: 14px; }
+  #front .kicker { display: inline-block; font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--brand); }
+  #front h2 { font-size: clamp(30px, 3.4vw, 48px); line-height: 1.08; letter-spacing: -.025em; margin: 12px 0 16px; font-weight: 800; }
+  #front .sub { color: var(--muted); font-size: 18px; max-width: 640px; margin: 0; }
+  #front .center { text-align: center; } #front .center .sub { margin: 0 auto; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front .kicker { color: var(--violet); } }
   :root[data-theme="dark"] #front .kicker { color: var(--violet); }
-  #front h2 { font-size: clamp(28px, 3.6vw, 42px); line-height: 1.12; letter-spacing: -.02em; margin: 10px 0 14px; font-weight: 800; }
-  #front .sub { color: var(--muted); font-size: 17px; max-width: 640px; margin: 0; }
-  #front .head { margin-bottom: 40px; }
-  #front .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  #front .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px; transition: transform .2s, box-shadow .2s; }
-  #front .card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(20,18,60,.10); }
-  #front .card h3 { font-size: 18px; margin: 16px 0 8px; letter-spacing: -.01em; }
-  #front .card p { margin: 0; color: var(--muted); font-size: 15px; }
-  #front .ic { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; color: #fff; }
-  #front .ic svg { width: 24px; height: 24px; }
+
+  /* Top bar */
+  #front .top { position: sticky; top: 0; z-index: 10; background: rgba(21,19,58,.80); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    border-bottom: 1px solid rgba(255,255,255,.08); }
+  #front .top .wrap { display: flex; align-items: center; justify-content: space-between; height: 76px; gap: 20px; }
+  #front .top img { height: 38px; width: auto; display: block; }
+  #front .top nav { display: flex; align-items: center; gap: 34px; }
+  #front .top nav a { color: rgba(255,255,255,.75); text-decoration: none; font-weight: 600; font-size: 15px; }
+  #front .top nav a:hover { color: #fff; }
+  #front .top .acts { display: flex; gap: 10px; align-items: center; }
+  #front .top .acts .txt { color: #fff; background: none; border: 0; font: 700 15px inherit; font-family: inherit; cursor: pointer; padding: 10px 14px; }
+
+  /* Hero */
+  #front .hero { position: relative; color: #fff; overflow: hidden; padding: 96px 0 150px; background:
+      radial-gradient(1000px 560px at 88% -8%, rgba(165,148,255,.38), transparent 62%),
+      radial-gradient(800px 520px at -8% 105%, rgba(63,209,189,.20), transparent 60%),
+      linear-gradient(165deg, #2b2870 0%, #1f1d4d 48%, #15133a 100%); }
+  #front .hero::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 56px 56px; -webkit-mask-image: radial-gradient(900px 500px at 50% 0%, #000, transparent 75%); mask-image: radial-gradient(900px 500px at 50% 0%, #000, transparent 75%); }
+  #front .hero .wrap { position: relative; z-index: 1; }
+  #front .hero .intro { text-align: center; max-width: 900px; margin: 0 auto; }
+  #front .eyebrow { display: inline-flex; align-items: center; gap: 9px; padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 700;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); color: #ebe8ff; }
+  #front .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px rgba(63,209,189,.22); }
+  #front h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: 1.0; letter-spacing: -.035em; margin: 24px 0 22px; font-weight: 800; }
+  #front h1 span { background: linear-gradient(90deg, #cbc1ff 0%, #8fe3d6 52%, #ffd98a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #front .lede { font-size: clamp(17px, 1.5vw, 21px); color: rgba(236,234,255,.80); max-width: 720px; margin: 0 auto 34px; }
+  #front .hero .cta { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  #front .ticks { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 28px; margin: 28px 0 0; padding: 0; list-style: none; font-size: 15px; color: rgba(236,234,255,.72); }
+  #front .ticks li::before { content: "✓"; color: var(--teal); font-weight: 800; margin-right: 8px; }
+
+  /* App window preview */
+  #front .stage { position: relative; margin: 72px auto 0; max-width: 1120px; }
+  #front .win { position: relative; border-radius: 20px; overflow: hidden; background: #fbfbff; color: #1b1a33;
+    box-shadow: 0 50px 100px rgba(5,4,25,.55), 0 0 0 1px rgba(255,255,255,.18); }
+  #front .win .bar { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #eeedf7; border-bottom: 1px solid #e2e1ef; font-size: 13px; color: #5b5b78; }
+  #front .win .bar b { width: 11px; height: 11px; border-radius: 50%; background: #dcdbe9; }
+  #front .win .bar .title { margin-left: 10px; font-weight: 700; }
+  #front .win .bar .pill { margin-left: auto; padding: 4px 10px; border-radius: 999px; background: #e6f8f5; color: #0d7a6b; font-weight: 800; font-size: 12px; }
+  #front .win .body { display: grid; grid-template-columns: 200px 1fr 270px; min-height: 400px; }
+  #front .side { background: #f4f3fb; border-right: 1px solid #e7e6f2; padding: 16px 12px; font-size: 13px; }
+  #front .side .h { font-weight: 800; color: #8a89a6; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin: 6px 8px 8px; }
+  #front .side div.it { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px; color: #4a4a66; font-weight: 600; }
+  #front .side div.it.on { background: #fff; color: #1b1a33; box-shadow: 0 1px 3px rgba(20,18,60,.08); }
+  #front .side .sw { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+  #front .main { padding: 16px 18px; overflow: hidden; }
+  #front .main .row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  #front .main .row1 b { font-size: 15px; } #front .main .row1 span { font-size: 12px; color: #77779a; }
+  #front .main table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #front .main th { text-align: left; font-weight: 700; color: #6b6b88; background: #f6f5fc; padding: 9px 10px; border-bottom: 1px solid #ecebf5; white-space: nowrap; font-size: 12px; }
+  #front .main td { padding: 10px; border-bottom: 1px solid #f0eff7; }
+  #front .main .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #front .main td.rate { background: linear-gradient(90deg, rgba(165,148,255,.08), rgba(165,148,255,.18)); font-weight: 700; }
+  #front .main tfoot td { font-weight: 800; background: #f6f5fc; border: 0; }
+  #front .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 800; vertical-align: 1px; }
+  #front .tag.db { background: #e6f8f5; color: #0d7a6b; } #front .tag.web { background: #e7f0fd; color: #2459a6; } #front .tag.est { background: #fdeee9; color: #a5492e; }
+  #front .main .note { margin-top: 10px; font-size: 11.5px; color: #8a89a6; }
+  #front .agent { border-left: 1px solid #e7e6f2; padding: 16px; background: linear-gradient(180deg, #fff, #f7f6fd); font-size: 13px; }
+  #front .agent .ah { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 14px; }
+  #front .agent .ah i { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(135deg, #4c3fc4, #7960dd); color: #fff; font-style: normal; }
+  #front .agent .prog { margin: 14px 0 6px; height: 8px; border-radius: 99px; background: #ecebf5; overflow: hidden; }
+  #front .agent .prog i { display: block; height: 100%; width: 86%; background: linear-gradient(90deg, #7960dd, #3fd1bd); border-radius: 99px; }
+  #front .agent .pl { display: flex; justify-content: space-between; color: #6b6b88; font-size: 12px; }
+  #front .agent ul { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 9px; }
+  #front .agent li { display: flex; align-items: center; gap: 9px; color: #3f3f5c; font-weight: 600; }
+  #front .agent li i { width: 18px; height: 18px; border-radius: 50%; flex: none; font-style: normal; display: grid; place-items: center; font-size: 11px; color: #fff; background: #18b5a3; }
+  #front .agent li.wait i { background: #d9d8e8; color: #6b6b88; }
+  #front .chipf { position: absolute; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: #fff; color: #1b1a33;
+    box-shadow: 0 20px 44px rgba(5,4,25,.35); font-size: 13.5px; font-weight: 800; }
+  #front .chipf small { display: block; font-weight: 600; color: #6b6b88; font-size: 12px; }
+  #front .chipf .d { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; flex: none; }
+  #front .chipf.a { left: -30px; bottom: -46px; } #front .chipf.a .d { background: linear-gradient(135deg, #18b5a3, #3fd1bd); }
+  #front .chipf.b { right: -34px; bottom: 54px; } #front .chipf.b .d { background: linear-gradient(135deg, #d9962a, #f2b33d); }
+
+  /* Inputs strip */
+  #front .strip { margin-top: -54px; position: relative; z-index: 2; }
+  #front .strip .box { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 16px; padding: 22px 26px; border-radius: 18px;
+    background: var(--card); border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(20,18,60,.10); font-size: 15px; color: var(--muted); }
+  #front .strip .chip { padding: 8px 16px; border-radius: 999px; background: var(--soft); font-weight: 700; color: var(--ink); font-size: 14px; }
+
+  /* Sections */
+  #front section.sec { padding: 120px 0 0; }
+  #front .head { margin-bottom: 52px; }
+
+  /* Bento features */
+  #front .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; }
+  #front .tile { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 30px; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+  #front .tile:hover { transform: translateY(-3px); box-shadow: 0 22px 50px rgba(20,18,60,.10); }
+  #front .tile h3 { font-size: 21px; letter-spacing: -.01em; margin: 18px 0 8px; }
+  #front .tile p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  #front .t-a { grid-column: span 4; } #front .t-b { grid-column: span 2; } #front .t-c { grid-column: span 2; }
+  #front .t-d { grid-column: span 2; } #front .t-e { grid-column: span 2; } #front .t-f { grid-column: span 3; } #front .t-g { grid-column: span 3; }
+  #front .ic { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; color: #fff; }
+  #front .ic svg { width: 25px; height: 25px; }
   #front .c1 { background: linear-gradient(135deg, #7960dd, #a594ff); } #front .c2 { background: linear-gradient(135deg, #18b5a3, #3fd1bd); }
   #front .c3 { background: linear-gradient(135deg, #4a8fe0, #6aa8f0); } #front .c4 { background: linear-gradient(135deg, #e8846b, #f09a80); }
   #front .c5 { background: linear-gradient(135deg, #2b2870, #4c3fc4); } #front .c6 { background: linear-gradient(135deg, #d9962a, #f2b33d); }
+  /* little visuals inside tiles */
+  #front .t-a { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; }
+  #front .sld { position: relative; height: 210px; border-radius: 16px; background: var(--soft); border: 1px solid var(--line); overflow: hidden; }
+  #front .sld svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #front .src { margin-top: 22px; display: grid; gap: 10px; }
+  #front .src div { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--muted); }
+  #front .src span { height: 10px; border-radius: 99px; }
+  #front .t-g { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px; }
+  #front .files { display: flex; }
+  #front .files b { width: 64px; height: 78px; border-radius: 12px; margin-left: -18px; display: grid; place-items: end center; padding-bottom: 10px; color: #fff; font-size: 12px;
+    background: linear-gradient(160deg, #1d7a45, #2aa060); box-shadow: 0 8px 20px rgba(20,18,60,.18); border: 2px solid var(--card); }
+  #front .files b:nth-child(2) { background: linear-gradient(160deg, #4c3fc4, #7960dd); transform: translateY(-8px); }
+  #front .files b:nth-child(3) { background: linear-gradient(160deg, #18b5a3, #3fd1bd); transform: translateY(-14px); }
 
-  /* Steps */
-  #front .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: s; }
-  #front .step { position: relative; padding: 28px 26px 26px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
-  #front .step::before { counter-increment: s; content: counter(s); position: absolute; top: -16px; left: 24px; width: 34px; height: 34px; border-radius: 50%;
-    display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #4c3fc4, #7960dd); box-shadow: 0 6px 16px rgba(76,63,196,.35); }
-  #front .step h3 { margin: 8px 0 8px; font-size: 18px; }
-  #front .step p { margin: 0; color: var(--muted); font-size: 15px; }
+  /* Timeline */
+  #front .line { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  #front .line::before { content: ""; position: absolute; top: 31px; left: 12%; right: 12%; height: 2px; background: linear-gradient(90deg, #a594ff, #3fd1bd, #f2b33d); opacity: .7; }
+  #front .stp { position: relative; text-align: center; padding: 0 12px; }
+  #front .stp .num { position: relative; z-index: 1; width: 64px; height: 64px; margin: 0 auto 22px; border-radius: 20px; display: grid; place-items: center; font-size: 24px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, #4c3fc4, #7960dd); box-shadow: 0 12px 28px rgba(76,63,196,.35); }
+  #front .stp:nth-child(2) .num { background: linear-gradient(135deg, #18b5a3, #3fd1bd); box-shadow: 0 12px 28px rgba(24,181,163,.35); }
+  #front .stp:nth-child(3) .num { background: linear-gradient(135deg, #d9962a, #f2b33d); box-shadow: 0 12px 28px rgba(217,150,42,.35); }
+  #front .stp h3 { font-size: 22px; margin: 0 0 8px; }
+  #front .stp p { margin: 0 auto; color: var(--muted); max-width: 320px; }
 
-  /* AI agent band */
-  #front .band { margin-top: 92px; color: #fff; border-radius: 28px; padding: 54px; background:
-      radial-gradient(600px 300px at 100% 0%, rgba(242,179,61,.18), transparent 60%),
-      linear-gradient(150deg, #2b2870, #15133a); display: grid; grid-template-columns: 1.1fr 1fr; gap: 44px; align-items: center; }
-  #front .band h2 { color: #fff; }
-  #front .band .sub { color: rgba(236,234,255,.78); }
-  #front .band .kicker { color: var(--gold) !important; }
-  #front .team { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  #front .team div { padding: 16px; border-radius: 14px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); font-size: 14px; color: rgba(236,234,255,.8); }
-  #front .team b { display: block; color: #fff; font-size: 15px; margin-bottom: 3px; }
+  /* AI estimator and team */
+  #front .ai { margin-top: 120px; color: #fff; padding: 110px 0; background:
+      radial-gradient(700px 400px at 100% 0%, rgba(242,179,61,.16), transparent 60%),
+      radial-gradient(700px 420px at 0% 100%, rgba(165,148,255,.22), transparent 60%),
+      linear-gradient(160deg, #2b2870, #15133a); }
+  #front .ai .grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 70px; align-items: center; }
+  #front .ai h2 { color: #fff; } #front .ai .sub { color: rgba(236,234,255,.78); }
+  #front .ai .kicker { color: var(--gold) !important; }
+  #front .ai .cta { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  #front .org { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  #front .org .lead { grid-column: 1 / -1; justify-self: center; display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-radius: 18px;
+    background: linear-gradient(135deg, rgba(165,148,255,.28), rgba(63,209,189,.18)); border: 1px solid rgba(255,255,255,.22); }
+  #front .org .lead i { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: #f2b33d; color: #241a00; font-style: normal; font-weight: 800; }
+  #front .org .lead b { display: block; font-size: 17px; } #front .org .lead span { font-size: 13.5px; color: rgba(236,234,255,.75); }
+  #front .org .m { padding: 16px; border-radius: 16px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); font-size: 13.5px; color: rgba(236,234,255,.75); }
+  #front .org .m b { display: block; color: #fff; font-size: 15px; margin-bottom: 2px; }
+  #front .checks { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 6px; }
+  #front .checks div { padding: 12px; border-radius: 12px; text-align: center; font-size: 13px; font-weight: 700; color: #fff; background: rgba(63,209,189,.14); border: 1px solid rgba(63,209,189,.35); }
+  #front .checks div small { display: block; font-weight: 600; color: rgba(236,234,255,.7); font-size: 11.5px; }
 
-  /* Output promise */
-  #front .split { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
-  #front .list { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 14px; }
-  #front .list li { display: flex; gap: 12px; color: var(--muted); }
+  /* Excel */
+  #front .xl { display: grid; grid-template-columns: .95fr 1.05fr; gap: 64px; align-items: center; }
+  #front .list { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 16px; }
+  #front .list li { display: flex; gap: 14px; color: var(--muted); font-size: 16.5px; }
   #front .list li b { color: var(--ink); }
-  #front .list li::before { content: ""; flex: none; width: 22px; height: 22px; margin-top: 2px; border-radius: 50%;
-    background: var(--teal) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat; }
-  #front .sheets { display: grid; gap: 12px; }
-  #front .sheet { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); }
-  #front .sheet .x { flex: none; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; background: #1d7a45; }
-  #front .sheet b { display: block; }
-  #front .sheet span { color: var(--muted); font-size: 14px; }
+  #front .list li::before { content: ""; flex: none; width: 24px; height: 24px; margin-top: 2px; border-radius: 50%;
+    background: var(--teal) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/15px no-repeat; }
+  #front .sheet { border-radius: 18px; overflow: hidden; background: #fff; color: #1b1a33; border: 1px solid var(--line); box-shadow: 0 30px 70px rgba(20,18,60,.14); font-size: 12.5px; }
+  #front .sheet .fx { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #e7e6f2; background: #f7f7fb; font-family: Consolas, ui-monospace, monospace; color: #4a4a66; }
+  #front .sheet .fx b { font-family: inherit; color: #1d7a45; }
+  #front .sheet table { width: 100%; border-collapse: collapse; }
+  #front .sheet th { background: #f1f1f6; color: #6b6b88; font-weight: 700; padding: 6px 8px; border: 1px solid #e7e6f2; font-size: 11.5px; }
+  #front .sheet td { padding: 8px; border: 1px solid #efeff5; }
+  #front .sheet td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  #front .sheet td.add { background: #f3f1ff; }
+  #front .sheet th.add { background: #e7e3ff; color: #4c3fc4; }
+  #front .sheet .tabs { display: flex; gap: 2px; padding: 0 10px; background: #f1f1f6; border-top: 1px solid #e7e6f2; }
+  #front .sheet .tabs span { padding: 8px 14px; font-weight: 700; color: #6b6b88; }
+  #front .sheet .tabs span.on { background: #fff; color: #1d7a45; border-bottom: 2px solid #1d7a45; }
+  #front .sheet .tabs span.new { color: #4c3fc4; }
 
-  /* Final call */
-  #front .final { margin: 96px 0 0; text-align: center; padding: 64px 24px; border-radius: 28px; background: var(--card); border: 1px solid var(--line); }
-  #front .final .cta { justify-content: center; margin-top: 26px; }
-  #front footer { padding: 40px 0 46px; color: var(--muted); font-size: 14px; }
-  #front footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-  #front footer img { height: 26px; width: auto; display: block; }
+  /* Final */
+  #front .final { margin-top: 120px; position: relative; overflow: hidden; border-radius: 32px; padding: 84px 40px; text-align: center; color: #fff; background:
+      radial-gradient(600px 320px at 50% 0%, rgba(165,148,255,.35), transparent 70%), linear-gradient(160deg, #2b2870, #15133a); }
+  #front .final h2 { color: #fff; font-size: clamp(32px, 3.8vw, 54px); }
+  #front .final p { color: rgba(236,234,255,.78); font-size: 18px; margin: 0 auto 32px; max-width: 560px; }
+  #front .final .cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  #front footer { margin-top: 80px; border-top: 1px solid var(--line); padding: 36px 0 48px; color: var(--muted); font-size: 14px; }
+  #front footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; }
+  #front footer img { height: 30px; width: auto; display: block; }
+  #front footer nav { display: flex; gap: 26px; }
+  #front footer nav a { text-decoration: none; font-weight: 600; }
+  #front footer nav a:hover { color: var(--ink); }
   #front .on-dark-only { display: none; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) #front .on-light-only { display: none; } :root:not([data-theme="light"]) #front .on-dark-only { display: block; } }
   :root[data-theme="dark"] #front .on-light-only { display: none; }
   :root[data-theme="dark"] #front .on-dark-only { display: block; }
 
-  @media (max-width: 960px) {
-    #front .hero .grid, #front .band, #front .split { grid-template-columns: 1fr; }
-    #front .shot { transform: none; }
-    #front .cards { grid-template-columns: 1fr 1fr; }
-    #front .band { padding: 36px 26px; }
-    #front .top nav a:not(.login) { display: none; }
+  /* Laptops and tablets */
+  @media (max-width: 1180px) {
+    #front .win .body { grid-template-columns: 1fr 250px; } #front .side { display: none; }
+    #front .chipf.a { left: -12px; } #front .chipf.b { right: -12px; }
   }
-  @media (max-width: 640px) {
-    #front .hero { padding: 44px 0 80px; }
-    #front .cards, #front .steps, #front .team { grid-template-columns: 1fr; }
-    #front .shot .hide-s { display: none; }
-    #front .float { right: 8px; top: -28px; }
-    #front section.sec { padding-top: 70px; }
-    #front .steps { gap: 30px; }
+  @media (max-width: 1100px) { #front .ai .grid { grid-template-columns: 1fr; gap: 48px; } }
+  @media (max-width: 980px) {
+    #front .top nav { display: none; }
+    #front .t-a, #front .t-g { grid-column: span 6; } #front .t-b, #front .t-c, #front .t-d, #front .t-e, #front .t-f { grid-column: span 3; }
+    #front .ai .grid, #front .xl { grid-template-columns: 1fr; gap: 48px; }
+    #front .chipf { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { #front, #front * { scroll-behavior: auto !important; transition: none !important; } }
+  /* Phones */
+  @media (max-width: 680px) {
+    #front .wrap { width: calc(100% - 32px); }
+    #front .top .wrap { height: 66px; } #front .top img { height: 32px; } #front .top .acts .txt { display: none; }
+    #front .hero { padding: 56px 0 110px; }
+    #front .win .body { grid-template-columns: 1fr; } #front .side, #front .agent { display: none; }
+    #front .main .hide-s { display: none; }
+    #front .stage { margin-top: 48px; }
+    #front section.sec { padding-top: 84px; }
+    #front .bento { grid-template-columns: 1fr; }
+    #front .bento > * { grid-column: auto !important; }
+    #front .t-a, #front .t-g { grid-template-columns: 1fr; }
+    #front .line { grid-template-columns: 1fr; gap: 40px; } #front .line::before { display: none; }
+    #front .org { grid-template-columns: 1fr 1fr; } #front .checks { grid-template-columns: 1fr 1fr; }
+    #front .ai { padding: 80px 0; margin-top: 84px; }
+    #front .final { padding: 60px 22px; border-radius: 24px; margin-top: 84px; }
+    #front footer nav { display: none; }
+    #front .sheet .hide-s { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { #front * { transition: none !important; } }
 </style>
 
 <div id="front" hidden>
@@ -216,17 +301,21 @@
     <div class="wrap">
       <a href="#front-top" aria-label="Arzimate home"><img src="brand/arzimate-logo-on-dark.png" width="808" height="270" alt="Arzimate"></a>
       <nav aria-label="Front page">
+        <a href="#front-features">Features</a>
         <a href="#front-how">How it works</a>
         <a href="#front-agent">AI Pricing Agent</a>
         <a href="#front-output">Your Excel</a>
-        <button type="button" class="btn btn-gold login" data-open-app>Log in</button>
       </nav>
+      <div class="acts">
+        <button type="button" class="txt" data-open-app>Log in</button>
+        <button type="button" class="btn btn-gold btn-sm" data-open-app>Get started</button>
+      </div>
     </div>
   </header>
 
   <div class="hero" id="front-top">
-    <div class="wrap grid">
-      <div>
+    <div class="wrap">
+      <div class="intro">
         <span class="eyebrow"><i></i>Estimation for electrical and building services</span>
         <h1>Drawings in.<br><span>Priced BOQ out.</span></h1>
         <p class="lede">Arzimate reads your drawings, BOQs and specifications, prices every line from your own rates and the market, and hands you a clean Excel offer with margin, transport and accessories built in.</p>
@@ -235,29 +324,56 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <a class="btn btn-ghost" href="#front-how">See how it works</a>
         </div>
-        <ul class="ticks">
-          <li>Your client's format kept</li>
-          <li>Every line priced</li>
-          <li>Prices in rupees</li>
-        </ul>
+        <ul class="ticks"><li>Your client's format kept</li><li>Every S. No. priced</li><li>Rates in rupees</li><li>Excel you can edit</li></ul>
       </div>
-      <div style="position:relative">
-        <div class="shot" role="img" aria-label="Example of a priced BOQ in Arzimate">
-          <div class="bar"><b></b><b></b><b></b><span>Electrical BOQ - priced.xlsx</span></div>
-          <table>
-            <thead><tr><th>S. No.</th><th>Description</th><th class="n hide-s">Qty</th><th class="n">Rate (₹)</th><th class="n hide-s">Amount (₹)</th></tr></thead>
-            <tbody>
-              <tr><td>1</td><td>3C x 300 sq mm AL armoured cable</td><td class="n hide-s">250 m</td><td class="n new">1,105 <span class="tag db">DB</span></td><td class="n hide-s">2,76,250</td></tr>
-              <tr><td>2</td><td>630 A 4P MCCB incomer with MFM</td><td class="n hide-s">1 No</td><td class="n new">1,64,900 <span class="tag db">DB</span></td><td class="n hide-s">1,64,900</td></tr>
-              <tr><td>3</td><td>Cable tray, perforated, 300 mm</td><td class="n hide-s">120 m</td><td class="n new">845 <span class="tag web">Web</span></td><td class="n hide-s">1,01,400</td></tr>
-              <tr><td>4</td><td>LED flood light 150 W, IP66</td><td class="n hide-s">20 No</td><td class="n new">7,420 <span class="tag est">Est.</span></td><td class="n hide-s">1,48,400</td></tr>
-            </tbody>
-            <tfoot><tr><td></td><td>Total, margin and transport included</td><td class="hide-s"></td><td class="n"></td><td class="n hide-s">6,90,950</td></tr></tfoot>
-          </table>
-          <div class="note">Example rates for illustration. DB = your price database, Web = found online, Est. = estimate to check.</div>
+
+      <div class="stage">
+        <div class="win" role="img" aria-label="Example of a BOQ being priced in Arzimate">
+          <div class="bar"><b></b><b></b><b></b><span class="title">Arzimate · Sea water outfall · Electrical BOQ</span><span class="pill">Priced</span></div>
+          <div class="body">
+            <div class="side">
+              <div class="h">Project files</div>
+              <div class="it on"><span class="sw" style="background:#1d7a45"></span>Electrical BOQ.xlsx</div>
+              <div class="it"><span class="sw" style="background:#1d7a45"></span>Lighting BOQ.xlsx</div>
+              <div class="it"><span class="sw" style="background:#1d7a45"></span>Cable BOQ.xlsx</div>
+              <div class="it"><span class="sw" style="background:#e8846b"></span>SLD drawing.pdf</div>
+              <div class="h" style="margin-top:16px">Rates from</div>
+              <div class="it"><span class="sw" style="background:#18b5a3"></span>Your price database</div>
+              <div class="it"><span class="sw" style="background:#4a8fe0"></span>Market prices</div>
+              <div class="it"><span class="sw" style="background:#7960dd"></span>AI Pricing Agent</div>
+            </div>
+            <div class="main">
+              <div class="row1"><b>Electrical BOQ</b><span>Example rates for illustration</span></div>
+              <table>
+                <thead><tr><th>S. No.</th><th>Description</th><th class="n hide-s">Qty</th><th class="n">Rate (₹)</th><th class="n hide-s">Amount (₹)</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>3C x 300 sq mm AL armoured cable</td><td class="n hide-s">250 m</td><td class="n rate">1,105 <span class="tag db">DB</span></td><td class="n hide-s">2,76,250</td></tr>
+                  <tr><td>2</td><td>630 A 4P MCCB incomer with MFM</td><td class="n hide-s">1 No</td><td class="n rate">1,64,900 <span class="tag db">DB</span></td><td class="n hide-s">1,64,900</td></tr>
+                  <tr><td>3</td><td>Perforated cable tray, 300 mm</td><td class="n hide-s">120 m</td><td class="n rate">845 <span class="tag web">Web</span></td><td class="n hide-s">1,01,400</td></tr>
+                  <tr><td>4</td><td>LED flood light 150 W, IP66</td><td class="n hide-s">20 No</td><td class="n rate">7,420 <span class="tag est">Est.</span></td><td class="n hide-s">1,48,400</td></tr>
+                  <tr><td>5</td><td>Earth pit, GI pipe 65 mm x 3 m</td><td class="n hide-s">15 Set</td><td class="n rate">9,850 <span class="tag db">DB</span></td><td class="n hide-s">1,47,750</td></tr>
+                </tbody>
+                <tfoot><tr><td></td><td>Total, margin and transport included</td><td class="hide-s"></td><td></td><td class="n hide-s">8,38,700</td></tr></tfoot>
+              </table>
+              <div class="note">DB = your price database · Web = found online · Est. = estimate to check</div>
+            </div>
+            <div class="agent">
+              <div class="ah"><i>✦</i>AI Pricing Agent</div>
+              <div class="prog"><i></i></div>
+              <div class="pl"><span>Lines 43–45 of 52</span><span>about 2 min left</span></div>
+              <ul>
+                <li><i>✓</i>Quantities checked</li>
+                <li><i>✓</i>Parts priced from your records</li>
+                <li><i>✓</i>Market prices compared</li>
+                <li class="wait"><i>…</i>Offer check</li>
+                <li class="wait"><i>…</i>Writing your workbook</li>
+              </ul>
+            </div>
+          </div>
         </div>
-        <div class="float" aria-hidden="true"><span class="dot">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l2 5.2 5.2 2-5.2 2L12 17.4 10 12.2 4.8 10.2l5.2-2z" fill="currentColor"/></svg></span>
+        <div class="chipf a" aria-hidden="true"><span class="d"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 12.5l4 4 8-9" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span>Client format kept<small>Only rate columns added</small></span></div>
+        <div class="chipf b" aria-hidden="true"><span class="d"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3l2 5.2 5.2 2-5.2 2L12 17.4 10 12.2 4.8 10.2l5.2-2z" fill="#fff"/></svg></span>
           <span>Every S. No. priced<small>Rates, margin and totals filled in</small></span></div>
       </div>
     </div>
@@ -265,60 +381,85 @@
 
   <div class="wrap strip">
     <div class="box"><span>Works from</span>
-      <span class="chip">DWG</span><span class="chip">PDF</span><span class="chip">Excel BOQ</span><span class="chip">Word</span><span class="chip">Images</span><span class="chip">Single line diagrams</span></div>
+      <span class="chip">DWG</span><span class="chip">PDF</span><span class="chip">Excel BOQ</span><span class="chip">Word</span><span class="chip">Images</span><span class="chip">Single line diagrams</span><span class="chip">Specifications</span></div>
   </div>
 
-  <section class="sec">
+  <section class="sec" id="front-features">
     <div class="wrap">
-      <div class="head"><div class="kicker">What it does</div>
+      <div class="head center"><span class="kicker">What it does</span>
         <h2>An estimator's desk, in your browser</h2>
         <p class="sub">From the enquiry to the offer: quantities, rates, checks and the Excel you send.</p></div>
-      <div class="cards">
-        <div class="card"><div class="ic c1"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4zm0 5l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
-          <h3>Reads your drawings</h3><p>Legends, symbols per floor and single line diagrams become clean line items with quantities.</p></div>
-        <div class="card"><div class="ic c2"><svg viewBox="0 0 24 24" fill="none"><path d="M7 5h10M7 9h10M9 9c3 0 5 1.6 5 4s-2 4-5 4h-1l6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-          <h3>Prices every item</h3><p>Your own rates first, then market prices, with discount, margin, transport and accessories.</p></div>
-        <div class="card"><div class="ic c3"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+      <div class="bento">
+        <div class="tile t-a">
+          <div><div class="ic c1"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4zm0 5l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+            <h3>Reads your drawings</h3><p>Legends, symbols per floor and single line diagrams become clean line items with quantities, ready to price.</p></div>
+          <div class="sld" aria-hidden="true">
+            <svg viewBox="0 0 320 210" fill="none">
+              <path d="M160 18v30M60 78h200M60 78v40M120 78v40M200 78v40M260 78v40" stroke="#7960dd" stroke-width="3" stroke-linecap="round"/>
+              <rect x="138" y="48" width="44" height="30" rx="6" fill="#a594ff" opacity=".35" stroke="#7960dd" stroke-width="2"/>
+              <g fill="#fff" stroke="#4a8fe0" stroke-width="2"><rect x="44" y="118" width="32" height="40" rx="5"/><rect x="104" y="118" width="32" height="40" rx="5"/><rect x="184" y="118" width="32" height="40" rx="5"/><rect x="244" y="118" width="32" height="40" rx="5"/></g>
+              <g fill="#18b5a3"><circle cx="60" cy="176" r="5"/><circle cx="120" cy="176" r="5"/><circle cx="200" cy="176" r="5"/><circle cx="260" cy="176" r="5"/></g>
+              <g fill="#e8846b" font-family="Manrope, sans-serif" font-size="11" font-weight="700"><text x="44" y="198">63 A</text><text x="104" y="198">40 A</text><text x="184" y="198">32 A</text><text x="244" y="198">25 A</text></g>
+            </svg>
+          </div>
+        </div>
+        <div class="tile t-b"><div class="ic c2"><svg viewBox="0 0 24 24" fill="none"><path d="M7 5h10M7 9h10M9 9c3 0 5 1.6 5 4s-2 4-5 4h-1l6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h3>Prices every item</h3><p>Your own rates first, then the market.</p>
+          <div class="src" aria-hidden="true">
+            <div>Your rates<span style="background:linear-gradient(90deg,#18b5a3,#3fd1bd);width:92%"></span></div>
+            <div>Market<span style="background:linear-gradient(90deg,#4a8fe0,#6aa8f0);width:64%"></span></div>
+            <div>Estimate<span style="background:linear-gradient(90deg,#e8846b,#f09a80);width:38%"></span></div>
+          </div></div>
+        <div class="tile t-c"><div class="ic c3"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
           <h3>Keeps the client's BOQ</h3><p>Sheets, merges and formats stay exactly as sent. Only the rate columns are added.</p></div>
-        <div class="card"><div class="ic c4"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6l8 6 8-6M4 6h16v12H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+        <div class="tile t-d"><div class="ic c4"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6l8 6 8-6M4 6h16v12H4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
           <h3>RFQs to suppliers</h3><p>Send requests for quotation to your vendors from the same project.</p></div>
-        <div class="card"><div class="ic c5"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4m0 10v4M3 12h4m10 0h4M6 6l2.5 2.5m7 7L18 18M6 18l2.5-2.5m7-7L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
-          <h3>Many files at once</h3><p>Upload several BOQ files; each comes back as its own priced workbook.</p></div>
-        <div class="card"><div class="ic c6"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg></div>
+        <div class="tile t-e"><div class="ic c6"><svg viewBox="0 0 24 24" fill="none"><path d="M5 19V9m7 10V5m7 14v-7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+          <h3>Margin your way</h3><p>Discount, margin, transport and accessories, for the whole offer or line by line.</p></div>
+        <div class="tile t-f"><div class="ic c5"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2"/></svg></div>
           <h3>Your files, your control</h3><p>The app reads drawings and Excel files in your browser. Only what you send to the AI Pricing Agent goes to its server.</p></div>
+        <div class="tile t-g"><div><div class="ic c2"><svg viewBox="0 0 24 24" fill="none"><path d="M8 4h8l4 4v12H8zM4 8v12h4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>
+          <h3>Many BOQ files at once</h3><p>Upload several files; each comes back as its own priced workbook.</p></div>
+          <div class="files" aria-hidden="true" style="padding-left:18px"><b>.xlsx</b><b>.xlsx</b><b>.xlsx</b></div></div>
       </div>
     </div>
   </section>
 
   <section class="sec" id="front-how">
     <div class="wrap">
-      <div class="head"><div class="kicker">How it works</div><h2>Three steps to an offer</h2></div>
-      <div class="steps">
-        <div class="step"><h3>Upload</h3><p>Add the client's BOQ files, drawings or specifications to a project.</p></div>
-        <div class="step"><h3>Price</h3><p>Rates come from your price database, the market or the AI Pricing Agent, line by line.</p></div>
-        <div class="step"><h3>Send</h3><p>Download the priced Excel with summary and rate back-up, ready for your offer.</p></div>
+      <div class="head center"><span class="kicker">How it works</span><h2>Three steps to an offer</h2></div>
+      <div class="line">
+        <div class="stp"><div class="num">1</div><h3>Upload</h3><p>Add the client's BOQ files, drawings or specifications to a project.</p></div>
+        <div class="stp"><div class="num">2</div><h3>Price</h3><p>Rates come from your price database, the market or the AI Pricing Agent, line by line.</p></div>
+        <div class="stp"><div class="num">3</div><h3>Send</h3><p>Download the priced Excel with summary and rate back-up, ready for your offer.</p></div>
       </div>
     </div>
   </section>
 
-  <div class="wrap" id="front-agent">
-    <div class="band">
-      <div><div class="kicker">AI Pricing Agent</div>
+  <div class="ai" id="front-agent">
+    <div class="wrap grid">
+      <div><span class="kicker">AI Pricing Agent</span>
         <h2>A 20-year estimator, with a team behind it</h2>
-        <p class="sub">The agent breaks every BOQ line into its parts, prices each one from your records and the market, and fills the rate of every S. No. It works in the background while you carry on.</p>
-        <div class="cta" style="margin-top:26px"><button type="button" class="btn btn-gold" data-open-app>Try the agent</button></div></div>
-      <div class="team">
-        <div><b>Quantity check</b>Missing and repeated quantities</div>
-        <div><b>Price check</b>Parts above their item, far-apart rates</div>
-        <div><b>Offer check</b>The biggest lines in the offer</div>
-        <div><b>Output check</b>A rate on every line</div>
+        <p class="sub">The agent breaks every BOQ line into its parts, prices each one from your records and the market, and fills the rate of every S. No. It works in the background while you carry on, and separate teams check the result before you see it.</p>
+        <div class="cta"><button type="button" class="btn btn-gold" data-open-app>Try the agent</button></div></div>
+      <div class="org" aria-label="The agent's team">
+        <div class="lead"><i>20</i><div><b>Senior cost estimator</b><span>20 years' method, leads every BOQ</span></div></div>
+        <div class="m"><b>Design consultant</b>Reads the scope of each item</div>
+        <div class="m"><b>Quantity surveyor</b>Breaks items into parts</div>
+        <div class="m"><b>Estimation manager</b>Sets the build-up</div>
+        <div class="m"><b>Purchase manager</b>Your past rates</div>
+        <div class="m"><b>Procurement manager</b>Market prices</div>
+        <div class="m"><b>Checking teams</b>Four checks before you see it</div>
+        <div class="checks">
+          <div>Quantity<small>check</small></div><div>Price<small>check</small></div><div>Offer<small>check</small></div><div>Output<small>check</small></div>
+        </div>
       </div>
     </div>
   </div>
 
   <section class="sec" id="front-output">
-    <div class="wrap split">
-      <div><div class="kicker">Your Excel</div>
+    <div class="wrap xl">
+      <div><span class="kicker">Your Excel</span>
         <h2>The workbook you send, ready to change</h2>
         <ul class="list">
           <li><span><b>Live formulas.</b> Change a rate, quantity or margin and every total follows.</span></li>
@@ -326,20 +467,27 @@
           <li><span><b>Summary linked to the BOQ,</b> with the grand total.</span></li>
           <li><span><b>Backup sheet</b> showing where every rate came from.</span></li>
         </ul></div>
-      <div class="sheets" aria-hidden="true">
-        <div class="sheet"><span class="x">XLS</span><div><b>Client BOQ</b><span>As sent, with rates and amounts filled in</span></div></div>
-        <div class="sheet"><span class="x" style="background:#4c3fc4">Σ</span><div><b>Summary</b><span>Section totals and grand total</span></div></div>
-        <div class="sheet"><span class="x" style="background:#18b5a3">₹</span><div><b>Backup</b><span>Rate build-up and its source for every line</span></div></div>
+      <div class="sheet" aria-hidden="true">
+        <div class="fx"><b>fx</b>=ROUND(L9*(1+M9)*(1+N9)*(1+O9),2)</div>
+        <table>
+          <thead><tr><th>S. No.</th><th>Description</th><th class="hide-s">Unit</th><th>Qty</th><th class="add">Rate</th><th class="add hide-s">Margin</th><th class="add">Amount</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>3C x 300 sq mm cable</td><td class="hide-s">m</td><td class="n">250</td><td class="n add">1,105</td><td class="n add hide-s">20%</td><td class="n add">2,76,250</td></tr>
+            <tr><td>2</td><td>630 A MCCB incomer</td><td class="hide-s">No</td><td class="n">1</td><td class="n add">1,64,900</td><td class="n add hide-s">20%</td><td class="n add">1,64,900</td></tr>
+            <tr><td>3</td><td>Cable tray 300 mm</td><td class="hide-s">m</td><td class="n">120</td><td class="n add">845</td><td class="n add hide-s">20%</td><td class="n add">1,01,400</td></tr>
+            <tr><td>4</td><td>Flood light 150 W</td><td class="hide-s">No</td><td class="n">20</td><td class="n add">7,420</td><td class="n add hide-s">20%</td><td class="n add">1,48,400</td></tr>
+          </tbody>
+        </table>
+        <div class="tabs"><span class="on">Client BOQ</span><span class="new">Summary</span><span class="new">Backup</span></div>
       </div>
     </div>
   </section>
 
   <div class="wrap">
     <div class="final">
-      <div class="kicker">Get started</div>
       <h2>Price your next enquiry with Arzimate</h2>
-      <p class="sub" style="margin:0 auto">Create an account or log in to open your projects.</p>
-      <div class="cta"><button type="button" class="btn btn-brand" data-open-app>Create account or log in</button></div>
+      <p>Create an account or log in to open your projects.</p>
+      <div class="cta"><button type="button" class="btn btn-gold" data-open-app>Get started</button><button type="button" class="btn btn-ghost" data-open-app>Log in</button></div>
     </div>
   </div>
 
@@ -347,6 +495,7 @@
     <div class="wrap">
       <img class="on-light-only" src="brand/arzimate-logo-on-light.png" width="808" height="270" alt="Arzimate">
       <img class="on-dark-only" src="brand/arzimate-logo-on-dark.png" width="808" height="270" alt="Arzimate">
+      <nav aria-label="Footer"><a href="#front-features">Features</a><a href="#front-how">How it works</a><a href="#front-agent">AI Pricing Agent</a><a href="#front-output">Your Excel</a></nav>
       <span>© <span id="front-year">2026</span> Arzimate · powered by Arzio</span>
     </div>
   </footer>
@@ -375,7 +524,10 @@
       if (!a) return;
       e.preventDefault();
       var t = document.getElementById(a.getAttribute('href').slice(1));
-      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!t) return;
+      var top = t.getBoundingClientRect().top + front.scrollTop - (a.closest('.top') || a.closest('footer') ? 76 : 0);
+      var smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      front.scrollTo({ top: Math.max(0, top - 10), behavior: smooth ? 'smooth' : 'auto' });
     });
     var wasIn = false;
     if (window.estimationAuth && window.estimationAuth.configured()) {
