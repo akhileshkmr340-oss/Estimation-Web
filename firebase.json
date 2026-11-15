@@ -1,74 +1,89 @@
 {
-  "hosting": {
-    "public": ".",
-    "ignore": [
-      "firebase.json",
-      ".firebaserc",
-      "**/.*",
-      "**/node_modules/**",
-      "server/**",
-      "accounts/**",
-      "README.md",
-      ".git/**",
-      "**/.git/**",
-      ".github/**"
-    ],
-    "cleanUrls": false,
-    "headers": [
-      {
-        "source": "**/*.@(html|js|json)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(wasm|otf|ttf|png|traineddata|gz)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ]
-      },
-      {
-        "source": "**/*.v-*.js",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
-          }
-        ]
-      },
-      {
-        "source": "ck-*/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
-          }
-        ]
-      },
-      {
-        "source": "@(firebase|pdfjs|ocr|dwg)/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=604800"
-          }
-        ]
-      },
-      {
-        "source": "assets/fonts/Roboto-*.ttf",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=2592000"
-          }
-        ]
-      }
-    ]
-  }
+  "hosting": [
+    {
+      "site": "arzimate",
+      "public": ".",
+      "ignore": [
+        "firebase.json",
+        ".firebaserc",
+        "**/.*",
+        "**/node_modules/**",
+        "server/**",
+        "accounts/**",
+        "README.md",
+        ".git/**",
+        "**/.git/**",
+        ".github/**",
+        "old-address/**"
+      ],
+      "cleanUrls": false,
+      "headers": [
+        {
+          "source": "**/*.@(html|js|json)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
+          "source": "**/*.@(wasm|otf|ttf|png|traineddata|gz)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
+          "source": "**/*.v-*.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "ck-*/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=31536000, immutable"
+            }
+          ]
+        },
+        {
+          "source": "@(firebase|pdfjs|ocr|dwg)/**",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=604800"
+            }
+          ]
+        },
+        {
+          "source": "assets/fonts/Roboto-*.ttf",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=2592000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "site": "estimation-6fa32",
+      "public": "old-address",
+      "redirects": [
+        {
+          "regex": "^/(?P<path>.*)$",
+          "destination": "https://arzimate.web.app/:path",
+          "type": 302
+        }
+      ]
+    }
+  ]
 }

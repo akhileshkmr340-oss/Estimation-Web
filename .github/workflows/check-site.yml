@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Pages answer and match this commit
         run: |
-          for site in https://estimation-6fa32.web.app; do
+          for site in https://arzimate.web.app; do
             for f in "" $(ls main.dart.v-*.js auth.v-*.js) accounts-config.js; do
               code=$(curl -s -o /tmp/f -w '%{http_code}' "$site/$f")
               same=""
@@ -23,7 +23,7 @@ jobs:
           done
       - name: AI agent, 60-minute logout, no .git published
         run: |
-          site=https://estimation-6fa32.web.app
+          site=https://arzimate.web.app
           curl -s "$site/" | grep -q 'agent-button.js' && echo "::notice::index.html loads agent-button.js" || echo "::error::index.html does not load agent-button.js"
           for f in agent-button.js agent/index.html; do
             code=$(curl -s -o /tmp/f -w '%{http_code}' "$site/$f"); cmp -s /tmp/f "$f" && same="same as repo" || same="DIFFERENT from repo"
@@ -35,6 +35,10 @@ jobs:
           [ "$code" = 404 ] && echo "::notice::$site/.git/config -> 404" || echo "::error::$site/.git/config -> $code (the repository is being published)"
       - name: Old GitHub Pages address is off
         run: echo "::notice::https://akhileshkmr340-oss.github.io/Estimation-Web/ -> $(curl -s -o /dev/null -w '%{http_code}' https://akhileshkmr340-oss.github.io/Estimation-Web/)"
+      - name: Old Firebase address forwards to arzimate.web.app
+        run: |
+          to=$(curl -s -o /dev/null -w '%{redirect_url}' https://estimation-6fa32.web.app/agent/)
+          [ "$to" = "https://arzimate.web.app/agent/" ] && echo "::notice::estimation-6fa32.web.app forwards to $to" || echo "::error::estimation-6fa32.web.app/agent/ forwards to '$to'"
       - name: Logins allowed on the address
         env:
           KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
@@ -50,7 +54,7 @@ jobs:
           if r.ok:
               d = r.json().get('authorizedDomains', [])
               print('::notice::Auth authorized domains: ' + ', '.join(d))
-              print('::notice::web.app allowed: ' + str('estimation-6fa32.web.app' in d))
+              print("::notice::arzimate.web.app allowed: " + str("arzimate.web.app" in d))
           else:
               print('::warning::Could not read the Auth settings (' + str(r.status_code) + ')')
           PY

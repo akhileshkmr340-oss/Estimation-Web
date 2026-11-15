@@ -1,4 +1,5 @@
-# Publishes the website to Firebase Hosting (https://estimation-6fa32.web.app)
+# Publishes the website to Firebase Hosting (https://arzimate.web.app; the old
+# address https://estimation-6fa32.web.app forwards there, see firebase.json)
 # on every push to main. Needs the repository secret FIREBASE_SERVICE_ACCOUNT
 # (a service account key of the Firebase project); see README.md.
 name: Deploy to Firebase Hosting
