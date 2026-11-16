@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 
 const src = fs.readFileSync(process.argv[2], 'utf8')
   .replace("'PASTE_YOUR_FIREBASE_API_KEY'", "'fake-api-key'")
-  .replace('https://identitytoolkit.googleapis.com/', 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/');
+  .replaceAll('https://identitytoolkit.googleapis.com/', 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/');
 const sheets = {};
 const props = process.env.FAKE_SEARCH ? { GEMINI_API_KEY: 'test-key' } : {};
 const files = [];
@@ -87,6 +87,7 @@ const ctx = {
   JSON, Date, String, Error, Number, isFinite, Math, Object, Array, RegExp,
   // FAKE_SEARCH=1: Gemini answers with a made-up price for each item (the
   // first item unpriced, so the estimate step runs), on moglix.com.
+  ScriptApp: { getOAuthToken: () => 'owner' }, // the Auth emulator takes 'owner' as an admin token
   UrlFetchApp: { fetchAll: (reqs) => reqs.map((r) => ctx.UrlFetchApp.fetch(r.url, r)), fetch(url, o) {
     if (process.env.FAKE_SEARCH && url.includes('generativelanguage')) {
       const prompt = JSON.parse(o.payload).contents[0].parts[0].text;
@@ -98,7 +99,9 @@ const ctx = {
       const body = { candidates: [{ content: { parts: [{ text: '```json\n' + JSON.stringify({ items }) + '\n```' }] }, groundingMetadata: { groundingChunks: [{ web: { title: 'moglix.com' } }, { web: { title: 'industrybuying.com' } }] } }] };
       return { getContentText: () => JSON.stringify(body), getResponseCode: () => 200 };
     }
-    const out = execFileSync('curl', ['-s', '--noproxy', '*', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', o.payload, '-w', '\n%{http_code}', url]).toString();
+    const hdrs = Object.entries(o.headers || {}).flatMap(([k, v]) => ['-H', `${k}: ${v}`]);
+    url = url.replace('/projects/estimation-6fa32/', '/projects/' + (process.env.PROJECT || 'demo-estimation') + '/');
+    const out = execFileSync('curl', ['-s', '--noproxy', '*', '-X', 'POST', '-H', 'Content-Type: application/json', ...hdrs, '-d', o.payload, '-w', '\n%{http_code}', url]).toString();
     const i = out.lastIndexOf('\n');
     return { getContentText: () => out.slice(0, i), getResponseCode: () => +out.slice(i + 1) };
   } },

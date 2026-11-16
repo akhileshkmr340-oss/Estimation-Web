@@ -133,6 +133,19 @@
       await auth.signOut();
     },
 
+    // "Forgot password?" through the Sheet script, which emails the link from
+    // the owner's Gmail. No sign-in. Answers the script's JSON; throws when
+    // the script cannot be reached.
+    resetViaScript: async (email) => {
+      const res = await fetch(script, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'resetPassword', email }),
+      });
+      return JSON.stringify(await res.json());
+    },
+
+    // Firebase's own reset email (the fallback).
     resetPassword: async (email) => {
       await start();
       try {

@@ -118,7 +118,7 @@
     {
       "source": "functions-users",
       "codebase": "users",
-      "runtime": "nodejs20",
+      "runtime": "nodejs22",
       "ignore": [
         "node_modules",
         "test",

@@ -24,6 +24,15 @@
  * that owns the price database, or the account with this script owner's own
  * email) can list, change, delete or export anyone's prices.
  *
+ * Password reset: "Forgot password?" on the website asks this script
+ * (resetPassword, no sign-in) to email the reset link from the owner's own
+ * Gmail, because Firebase's own sender (noreply@...firebaseapp.com) is
+ * filtered by some company mail systems. The link comes from Firebase
+ * (Identity Toolkit, as the script owner: needs the cloud-platform scope in
+ * appsscript.json). The answer is the same whether or not the account
+ * exists; each request is logged in "Password resets" (masked email, never
+ * the link).
+ *
  * User management: the website's 'users' Cloud Functions call devCheck,
  * devProfiles, devDeleteUserData and devAudit with the developer's own
  * sign-in, so the same developer check applies. Every disable, enable and
@@ -53,6 +62,8 @@ const HEADERS = ['User ID', 'First name', 'Last name', 'Organization', 'Departme
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents);
+    // The only request that needs no sign-in: "Forgot password?".
+    if (body.action === 'resetPassword') return reply_(resetPassword_(body));
     const user = verify_(body.idToken);
     if (body.action === 'save') return reply_(save_(user, body.profile || {}));
     if (body.action === 'get') return reply_({ ok: true, profile: find_(user.uid) });
@@ -1314,6 +1325,90 @@ function devDeleteUserData_(user, body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---- Password reset emails, sent from the owner's Gmail ----
+const RESETS = 'Password resets';
+const FIREBASE_PROJECT = 'estimation-6fa32';
+const RESET_ANSWER = { ok: true, message: 'If there is an Arzimate account for this email, a reset link is on its way from Arzimate. Check Junk too.' };
+
+/** "a***@example.com": enough to recognise a request, not the full address. */
+function maskEmail_(email) {
+  const at = email.indexOf('@');
+  return at < 1 ? '***' : email.charAt(0) + '***' + email.slice(at);
+}
+
+function logReset_(email, result) {
+  const book = SpreadsheetApp.getActive();
+  let s = book.getSheetByName(RESETS);
+  if (!s) {
+    s = book.insertSheet(RESETS);
+    s.getRange(1, 1, 1, 3).setValues([['When', 'Email (masked)', 'Result']]).setFontWeight('bold');
+    s.setFrozenRows(1);
+  }
+  s.appendRow([Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HH:mm:ss'), maskEmail_(email), result]);
+}
+
+/** Counts one more use of [key] this hour; false when [max] is already reached. */
+function underLimit_(cache, key, max) {
+  const n = Number(cache.get(key) || 0);
+  if (n >= max) return false;
+  cache.put(key, String(n + 1), 3600);
+  return true;
+}
+
+/**
+ * Emails a password reset link from the owner's Gmail. No sign-in. Always the
+ * same answer, so it never tells whether an account exists. At most 3 a
+ * hour per email and 30 a hour in all.
+ */
+function resetPassword_(body) {
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return { ok: false, error: 'Enter a valid email.' };
+  const cache = CacheService.getScriptCache();
+  const key = 'reset:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, email));
+  if (!underLimit_(cache, 'reset:all', 30) || !underLimit_(cache, key, 3)) {
+    logReset_(email, 'over the limit, not sent');
+    return RESET_ANSWER;
+  }
+  let link = '';
+  try {
+    const res = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/projects/' + FIREBASE_PROJECT + '/accounts:sendOobCode', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Goog-User-Project': FIREBASE_PROJECT },
+      payload: JSON.stringify({ requestType: 'PASSWORD_RESET', email: email, returnOobLink: true }),
+      muteHttpExceptions: true,
+    });
+    const data = JSON.parse(res.getContentText() || '{}');
+    if (res.getResponseCode() === 200 && data.oobLink) link = String(data.oobLink);
+    else {
+      const why = String((data.error && data.error.message) || res.getResponseCode());
+      logReset_(email, /EMAIL_NOT_FOUND|USER_NOT_FOUND/.test(why) ? 'no such account, not sent' : 'link refused: ' + why.slice(0, 120));
+      return RESET_ANSWER;
+    }
+  } catch (err) {
+    logReset_(email, 'link failed: ' + String(err.message || err).slice(0, 120));
+    return RESET_ANSWER;
+  }
+  const note = 'This link works once and expires in about an hour. If you did not ask for it, ignore this email.';
+  const safe = link.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  try {
+    GmailApp.sendEmail(email, 'Reset your Arzimate password',
+      'Hello,\n\nUse this link to set a new password for your Arzimate account (' + email + '):\n\n' + link + '\n\n' + note + '\n\nArzimate: BOQ to Excel\nhttps://arzimate.web.app',
+      {
+        name: 'Arzimate',
+        htmlBody: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1b1b2f;max-width:520px">' +
+          '<p>Hello,</p><p>Use the button below to set a new password for your Arzimate account (' + email.replace(/</g, '&lt;') + ').</p>' +
+          '<p style="margin:24px 0"><a href="' + safe + '" style="background:#4c3fc4;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Reset password</a></p>' +
+          '<p>Or open this link:<br><a href="' + safe + '" style="word-break:break-all">' + safe + '</a></p>' +
+          '<p style="color:#555">' + note + '</p><p style="color:#888">Arzimate: BOQ to Excel &middot; <a href="https://arzimate.web.app">arzimate.web.app</a></p></div>',
+      });
+    logReset_(email, 'sent');
+  } catch (err) {
+    logReset_(email, 'mail failed: ' + String(err.message || err).slice(0, 120));
+  }
+  return RESET_ANSWER;
 }
 
 function reply_(obj) {
