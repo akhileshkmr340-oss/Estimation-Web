@@ -12,7 +12,8 @@
  *
  * The "Rate database" sheet holds the owner's own price database (rates
  * from their earlier BOQs and offers). Only the account that first saved it,
- * and the emails listed in the "Rate database access" sheet, can read it;
+ * the developer and the emails listed in the "Rate database access" sheet
+ * can read it (the first two can also replace it);
  * the uploaded workbook is also kept in the Drive folder "Estimation price
  * database".
  *
@@ -20,9 +21,10 @@
  * ("Add to your prices": typed one by one, or imported from a price file
  * after a confirmation). Each row belongs to one account (User ID) and is
  * used only for that account's pricing. The website never lists them for
- * the user; only the developer (DEVELOPER_UIDS script property, the account
- * that owns the price database, or the account with this script owner's own
- * email) can list, change, delete or export anyone's prices.
+ * the user, nor how many there are; only the developer (DEVELOPER_UIDS
+ * script property, or the account with this script owner's own email) can
+ * count, list, change, delete or export anyone's prices. The account that
+ * owns the price database is not the developer.
  *
  * Password reset: "Forgot password?" on the website asks this script
  * (resetPassword, no sign-in) to email the reset link from the owner's own
@@ -285,7 +287,7 @@ function ratesAllowed_(user) {
   const owner = PropertiesService.getScriptProperties().getProperty('RATES_OWNER');
   // No owner yet: only the developer, never every signed-in account.
   if (!owner) return isDeveloper_(user);
-  if (owner === user.uid) return true;
+  if (owner === user.uid || isDeveloper_(user)) return true;
   const s = SpreadsheetApp.getActive().getSheetByName(RATES_ACCESS);
   if (!s || s.getLastRow() < 2 || !user.email) return false;
   const emails = s.getRange(2, 1, s.getLastRow() - 1, 1).getValues();
@@ -299,12 +301,13 @@ function getRates_(user) {
   const counts = {};
   mine.forEach(function (p) { counts[p.category] = (counts[p.category] || 0) + 1; });
   const extra = { mine: mine.map(function (p) { return { item: p.material, unit: p.unit, supply: p.price, brand: p.brand, category: p.category }; }), developer: isDeveloper_(user) };
-  if (!s || s.getLastRow() < 2 || !ratesAllowed_(user)) return Object.assign({ ok: true, rates: null, counts: counts }, extra);
+  // Price counts are shown to the developer only; other accounts get none.
+  if (!s || s.getLastRow() < 2 || !ratesAllowed_(user)) return Object.assign({ ok: true, rates: null }, extra.developer ? { counts: counts } : {}, extra);
   const rows = s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues();
   rows.forEach(function (v) { const c = category_(v[8]) || 'Others'; counts[c] = (counts[c] || 0) + 1; });
   return {
     ok: true,
-    counts: counts,
+    counts: extra.developer ? counts : undefined,
     mine: extra.mine,
     developer: extra.developer,
     uplift: Number(props.getProperty('RATES_UPLIFT') || 0),
@@ -336,7 +339,7 @@ function saveRates_(user, body) {
   try {
     const props = PropertiesService.getScriptProperties();
     const owner = props.getProperty('RATES_OWNER');
-    if (owner && owner !== user.uid) return { ok: false, error: 'Only the account that first saved the price database can replace it.' };
+    if (owner && owner !== user.uid && !isDeveloper_(user)) return { ok: false, error: 'Only the account that first saved the price database can replace it.' };
     if (!owner && !isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can save the main price database.' };
     const book = SpreadsheetApp.getActive();
     let s = book.getSheetByName(RATES);
@@ -384,15 +387,15 @@ function category_(v) {
 /**
  * The developer can see and change every price. Decided here, never by the
  * website: an account listed in the DEVELOPER_UIDS script property (comma
- * separated), the account that owns the price database (RATES_OWNER), or the
- * account registered with the email of the Google account that runs this
- * script (Firebase keeps one account per email).
+ * separated) or the account registered with the email of the Google account that runs this
+ * script (Firebase keeps one account per email). The account that owns the
+ * price database (RATES_OWNER) is NOT the developer: it keeps its rates,
+ * replacing them and the RFQ mailbox, nothing more.
  */
 function isDeveloper_(user) {
   const props = PropertiesService.getScriptProperties();
   const uids = String(props.getProperty('DEVELOPER_UIDS') || '').split(',').map(function (v) { return v.trim(); }).filter(String);
   if (uids.indexOf(user.uid) >= 0) return true;
-  if (props.getProperty('RATES_OWNER') === user.uid) return true;
   const me = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
   return !!me && !!user.email && user.email.toLowerCase() === me;
 }

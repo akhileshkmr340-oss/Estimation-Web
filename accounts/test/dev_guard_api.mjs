@@ -25,7 +25,7 @@ r = await call(dev, 'saveRates', { rates: [{ item: 'MCB 16A SP', unit: 'Nos', su
 check(r.ok, 'the developer saves the main price database');
 
 r = await call(user, 'getRates');
-check(r.ok && r.rates === null && r.developer === false, 'getRates for a normal account: rates null, not the developer');
+check(r.ok && r.rates === null && r.developer === false && !('counts' in r), 'getRates for a normal account: rates null, no counts, not the developer');
 check(!JSON.stringify(r).includes('MCB 16A SP') && !JSON.stringify(r).includes('950'), 'no main price reaches a normal account');
 r = await call(dev, 'getRates');
 check(r.ok && Array.isArray(r.rates) && r.rates.length === 2 && r.developer === true, 'the developer gets the main database');

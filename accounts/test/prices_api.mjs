@@ -33,7 +33,7 @@ check(r.ok && r.replaced === 1, 'replace: the old price with the same material, 
 r = await call(a, 'addPrices', { rows: [{ material: 'Duct 600x400', unit: 'Sqm', price: 990, brand: 'Zeco', category: 'HVAC' }], mode: 'keep' });
 check(r.ok && r.replaced === 0, 'keep both');
 r = await call(a, 'getRates');
-check(r.mine.length === 3 && r.counts.Electrical === 1 && r.counts.HVAC === 2, 'counts per category: ' + JSON.stringify(r.counts));
+check(r.mine.length === 3 && !('counts' in r), 'a normal account gets its own prices for pricing but no counts');
 check(r.file === undefined || r.file === '', 'the database file link is not sent to a normal user');
 r = await call(b, 'getRates');
 check(r.mine.length === 0, 'another account does not get these prices');
