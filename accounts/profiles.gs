@@ -283,7 +283,9 @@ const RATE_HEADERS = ['Description', 'Heading above it in the BOQ', 'UOM', 'Supp
 /** Whether this account may use the price database. */
 function ratesAllowed_(user) {
   const owner = PropertiesService.getScriptProperties().getProperty('RATES_OWNER');
-  if (!owner || owner === user.uid) return true;
+  // No owner yet: only the developer, never every signed-in account.
+  if (!owner) return isDeveloper_(user);
+  if (owner === user.uid) return true;
   const s = SpreadsheetApp.getActive().getSheetByName(RATES_ACCESS);
   if (!s || s.getLastRow() < 2 || !user.email) return false;
   const emails = s.getRange(2, 1, s.getLastRow() - 1, 1).getValues();
@@ -335,6 +337,7 @@ function saveRates_(user, body) {
     const props = PropertiesService.getScriptProperties();
     const owner = props.getProperty('RATES_OWNER');
     if (owner && owner !== user.uid) return { ok: false, error: 'Only the account that first saved the price database can replace it.' };
+    if (!owner && !isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can save the main price database.' };
     const book = SpreadsheetApp.getActive();
     let s = book.getSheetByName(RATES);
     if (!s) s = book.insertSheet(RATES);
