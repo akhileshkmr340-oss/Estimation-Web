@@ -246,6 +246,34 @@
       }
     },
 
+    // The developer's user management (the website's 'users' Cloud Functions:
+    // listUsers, setUserDisabled, deleteUser), JSON in and out. Throws
+    // 'missing' while those functions are not deployed. The functions check
+    // on the server that the caller is the developer.
+    fn: async (name, json) => {
+      await start();
+      if (!auth.currentUser) throw new Error('Log in first.');
+      if (!/^(listUsers|setUserDisabled|deleteUser)$/.test(name)) throw new Error('Unknown request.');
+      const idToken = await auth.currentUser.getIdToken();
+      const fnBase = settings.functionsBase || ('https://us-central1-' + config.projectId + '.cloudfunctions.net/');
+      let res;
+      try {
+        res = await fetch(fnBase + name, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+          body: JSON.stringify({ data: JSON.parse(json) }),
+        });
+      } catch (e) {
+        throw new Error('missing');
+      }
+      if (res.status === 404) throw new Error('missing');
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      if (data && data.error) throw new Error(data.error.message || data.error.status || 'The request was refused.');
+      if (!data || !('result' in data)) throw new Error('The user service gave an unexpected answer (' + res.status + ').');
+      return JSON.stringify(data.result);
+    },
+
     // The signed-in user's profile as JSON, or null.
     profile: async () => {
       await start();

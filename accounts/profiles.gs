@@ -24,6 +24,11 @@
  * that owns the price database, or the account with this script owner's own
  * email) can list, change, delete or export anyone's prices.
  *
+ * User management: the website's 'users' Cloud Functions call devCheck,
+ * devProfiles, devDeleteUserData and devAudit with the developer's own
+ * sign-in, so the same developer check applies. Every disable, enable and
+ * delete is written to the "User admin log" sheet.
+ *
  * Requests for quote: the owner's supplier list is kept in the "Suppliers"
  * sheet. The owner writes each Request for Quote on the website's RFQ tab
  * (From, To, CC, text and the items with no rate) and clicks Send; the
@@ -61,6 +66,10 @@ function doPost(e) {
     if (body.action === 'devPrices') return reply_(devPrices_(user, body));
     if (body.action === 'devUpdatePrice') return reply_(devUpdatePrice_(user, body));
     if (body.action === 'devDeletePrices') return reply_(devDeletePrices_(user, body));
+    if (body.action === 'devCheck') return reply_({ ok: true, developer: isDeveloper_(user), uid: user.uid });
+    if (body.action === 'devProfiles') return reply_(devProfiles_(user));
+    if (body.action === 'devDeleteUserData') return reply_(devDeleteUserData_(user, body));
+    if (body.action === 'devAudit') return reply_(devAudit_(user, body));
     if (body.action === 'getSuppliers') return reply_(getSuppliers_(user));
     if (body.action === 'saveSuppliers') return reply_(saveSuppliers_(user, body));
     if (body.action === 'sendRfq') return reply_(sendRfq_(user, body));
@@ -102,6 +111,7 @@ function verify_(idToken) {
   const data = JSON.parse(res.getContentText() || '{}');
   const u = data.users && data.users[0];
   if (res.getResponseCode() !== 200 || !u || !u.localId) throw new Error('Your sign-in has expired. Log in again.');
+  if (u.disabled) throw new Error('This account has been turned off.');
   const user = { uid: u.localId, email: u.email || '' };
   cache.put(key, JSON.stringify(user), 600);
   return user;
@@ -1243,6 +1253,67 @@ function openaiParse_(res, it, r) {
       if (c) r.candidates.push(c);
     });
   });
+}
+
+// ---- User management (developer only; called by the website's 'users' Cloud Functions with the developer's own sign-in) ----
+const AUDIT = 'User admin log';
+const AUDIT_HEADERS = ['When', 'Developer ID', 'Developer email', 'Action', 'Account ID', 'Account email', 'Details'];
+
+/** Developer only: every saved profile (name, organisation, department, mobile, signed up). */
+function devProfiles_(user) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const s = sheet_();
+  if (s.getLastRow() < 2) return { ok: true, profiles: [] };
+  return { ok: true, profiles: s.getRange(2, 1, s.getLastRow() - 1, HEADERS.length).getValues().filter(function (v) { return String(v[0]); }).map(function (v) {
+    return { uid: String(v[0]), firstName: String(v[1]), lastName: String(v[2]), organization: String(v[3]), department: String(v[4]), mobile: String(v[5]), email: String(v[6]), signedUp: v[7] ? String(v[7]) : '' };
+  }) };
+}
+
+function audit_(user, action, uid, email, details) {
+  const book = SpreadsheetApp.getActive();
+  let s = book.getSheetByName(AUDIT);
+  if (!s) {
+    s = book.insertSheet(AUDIT);
+    s.getRange(1, 1, 1, AUDIT_HEADERS.length).setValues([AUDIT_HEADERS]).setFontWeight('bold');
+    s.setFrozenRows(1);
+  }
+  s.appendRow([Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HH:mm:ss'), user.uid, user.email, text_(action, 40), text_(uid, 128), text_(email, 200), text_(details, 500)]);
+}
+
+/** Developer only: writes one line to the "User admin log" sheet (disable, enable, delete). */
+function devAudit_(user, body) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  if (!/^(disable|enable|delete)$/.test(String(body.what))) return { ok: false, error: 'Unknown action.' };
+  audit_(user, body.what, body.uid, body.email, body.details || '');
+  return { ok: true };
+}
+
+/**
+ * Developer only: removes what this Sheet keeps for one account: its profile
+ * row ("Users"), its project details ("Projects") and its own prices ("User
+ * prices"). Never the developer's own account. Says how many rows went.
+ */
+function devDeleteUserData_(user, body) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const uid = String(body.uid || '');
+  if (!uid) return { ok: false, error: 'No account given.' };
+  if (uid === user.uid) return { ok: false, error: 'You cannot delete your own account.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const gone = { profile: 0, projects: 0, prices: 0 };
+    const drop = function (s, width, key) {
+      if (!s || s.getLastRow() < 2) return;
+      const v = s.getRange(2, 1, s.getLastRow() - 1, width).getValues();
+      for (let i = v.length - 1; i >= 0; i--) if (String(v[i][0]) === uid) { s.deleteRow(i + 2); gone[key]++; }
+    };
+    drop(sheet_(), HEADERS.length, 'profile');
+    drop(SpreadsheetApp.getActive().getSheetByName(PROJECTS), PROJECT_HEADERS.length, 'projects');
+    drop(SpreadsheetApp.getActive().getSheetByName(PRICES), PRICE_HEADERS.length, 'prices');
+    return { ok: true, removed: gone };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function reply_(obj) {

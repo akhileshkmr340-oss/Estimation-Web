@@ -10,6 +10,7 @@
         "**/node_modules/**",
         "server/**",
         "accounts/**",
+        "functions-users/**",
         "README.md",
         ".git/**",
         "**/.git/**",
@@ -110,6 +111,18 @@
           "destination": "https://arzimate.web.app/:path",
           "type": 302
         }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "source": "functions-users",
+      "codebase": "users",
+      "runtime": "nodejs20",
+      "ignore": [
+        "node_modules",
+        "test",
+        ".gitignore"
       ]
     }
   ]

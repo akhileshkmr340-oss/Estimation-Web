@@ -1,0 +1,4 @@
+{
+  "functions": [{ "source": "..", "codebase": "users", "runtime": "nodejs20", "ignore": ["node_modules", "test"] }],
+  "emulators": { "auth": { "port": 9099 }, "functions": { "port": 5001 }, "ui": { "enabled": false } }
+}
