@@ -42,21 +42,20 @@ check(s.length === 3 && s[1][0] === 'MCB 16A SP' && s[1][3] === 150, 'the main d
 r = await call(dev, 'devImportMain', { rows: [{ material: '', price: 5, category: 'Electrical' }], mode: 'add' });
 check(!r.ok, 'a row with no material is refused');
 r = await call(dev, 'devImportMain', { rows, mode: 'add' });
-check(r.ok && r.added === 2 && r.replaced === 1 && r.total === 3, 'developer, add: 2 added, 1 replaced (same material and unit), 3 in all: ' + JSON.stringify(r));
+check(r.ok && r.added === 2 && r.replaced === 1 && r.total === 4, 'developer: 2 added (1 a newer price of the MCB), nothing removed, 4 in all: ' + JSON.stringify(r));
 s = await sheet();
 const mcb = s.filter((v) => v[0] === 'MCB 16A SP');
-check(mcb.length === 1 && mcb[0][3] === 160 && mcb[0][5] === 'Imported: quote.xlsx', 'the MCB now has the imported price');
+check(mcb.length === 2 && mcb[1][3] === 160 && mcb[1][5] === 'Imported: quote.xlsx' && mcb[0][3] === 150, 'the MCB keeps its old price and has the imported one');
 const cam = s.find((v) => v[0] === '4MP IP dome camera');
-check(cam && cam[1] === 'Make: Hikvision' && cam[8] === 'CCTV', 'brand kept as "Make:", category kept');
+check(cam && cam[1] === 'Make: Hikvision' && cam[8] === 'CCTV' && /^\d{4}-\d\d-\d\d$/.test(cam[9]), 'brand kept as "Make:", category and date kept');
 check(s.some((v) => v[0] === 'Duct 600x400' && v[3] === 950), 'other rows are kept');
 r = await call(owner, 'getRates');
-check(r.ok && r.rates.length === 3 && !('counts' in r), 'the owner prices with the new rows, still without counts');
+check(r.ok && r.rates.length === 3 && r.rates.find((x) => x.item === 'MCB 16A SP').supply === 160 && !('counts' in r), 'the owner prices with the newest of each item, still without counts');
 
 r = await call(dev, 'devImportMain', { rows: [rows[1]], mode: 'replace' });
-check(r.ok && r.added === 1 && r.total === 1, 'developer, replace: the database is only the new rows');
-s = await sheet();
-check(s.length === 2 && s[1][0] === '4MP IP dome camera', 'the sheet holds the heading and one row');
+check(!r.ok, 'developer: there is no replace any more');
+check((await sheet()).length === 5, 'the main database still has every row');
 r = await call(dev, 'getRates');
-check(r.ok && r.uplift === 0 && r.rates.length === 1 && r.counts.CCTV === 1, 'after replace: no uplift, the developer sees the count');
+check(r.ok && r.rates.length === 3 && r.counts.CCTV === 1 && r.counts.Electrical === 1 && r.counts.HVAC === 1, 'the developer sees item counts');
 console.log(fail.length ? `${fail.length} FAILED` : 'ALL PASSED');
 process.exit(fail.length ? 1 : 0);

@@ -77,9 +77,11 @@ const makeSheet = (rows) => ({
   setFrozenRows() {}, getLastRow: () => rows.length,
   getRange: (r, c, nr = 1, nc = 1) => ({
     setFontWeight() { return this; },
-    getValues: () => rows.slice(r - 1, r - 1 + nr).map((x) => x.slice(c - 1, c - 1 + nc)),
+    // Like Sheets: every asked cell is there, blank ones as ''.
+    getValues: () => Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => (rows[r - 1 + i] ?? [])[c - 1 + j] ?? '')),
     setValues(vals) { vals.forEach((v, i) => v.forEach((x, j) => ((rows[r - 1 + i] ??= [])[c - 1 + j] = cell(x)))); return this; },
     setValue: (x) => (rows[r - 1][c - 1] = x),
+    getValue: () => (rows[r - 1] ?? [])[c - 1] ?? '',
   }),
 });
 const cache = {};
@@ -127,7 +129,13 @@ const ctx = {
     getThreadById: (id) => { const t = threads.find((x) => x.id === id); return t ? threadObj(t) : null; },
     getMessageById: (id) => { for (const t of threads) { const m = t.messages.find((x) => x.id === id); if (m) return msgObj(m, t); } return null; },
   },
-  Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, computeDigest: (alg, t) => [...crypto.createHash(alg).update(t).digest()], base64EncodeWebSafe: (b) => Buffer.from(b).toString('base64url'), base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (t) => [...Buffer.from(t, 'base64')], getUuid: () => crypto.randomUUID(), newBlob: (bytes, mime, name) => ({ bytes: bytes.length, mime, name }), formatDate: () => '19 Oct 2026' },
+  Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, computeDigest: (alg, t) => [...crypto.createHash(alg).update(t).digest()], base64EncodeWebSafe: (b) => Buffer.from(b).toString('base64url'), base64Encode: (b) => Buffer.from(b).toString('base64'), base64Decode: (t) => [...Buffer.from(t, 'base64')], getUuid: () => crypto.randomUUID(), newBlob: (bytes, mime, name) => ({ bytes: bytes.length, mime, name }), formatDate: (d, tz, f) => {
+    // India time; the patterns this script uses.
+    const t = new Date(d.getTime() + 330 * 60000);
+    const p2 = (n) => String(n).padStart(2, '0');
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][t.getUTCMonth()];
+    return f.replace('yyyy', t.getUTCFullYear()).replace('MMM', mon).replace('MM', p2(t.getUTCMonth() + 1)).replace('dd', p2(t.getUTCDate())).replace(/\bd\b/, t.getUTCDate()).replace('HH', p2(t.getUTCHours())).replace('mm', p2(t.getUTCMinutes()));
+  } },
   MimeType: { MICROSOFT_EXCEL: 'xlsx' },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ setMimeType() { return this; }, t }) },
@@ -156,6 +164,15 @@ http.createServer((req, res) => {
       res.end(JSON.stringify({ ok: !!t })); return;
     }
     if (req.url.startsWith('/mails')) { res.end(JSON.stringify(mails)); return; }
+    // POST /seed?sheet=Name [[...], ...]: rows put straight into a sheet (tests of older data).
+    if (req.url.startsWith('/seed')) {
+      const n = new URL(req.url, 'http://x').searchParams.get('sheet');
+      if (!sheets[n]) ctx.SpreadsheetApp.getActive().insertSheet(n);
+      for (const row of JSON.parse(body)) sheets[n].rows.push(row);
+      res.end(JSON.stringify({ ok: true })); return;
+    }
+    // POST /props {...}: script properties.
+    if (req.url.startsWith('/props')) { Object.assign(props, JSON.parse(body)); res.end(JSON.stringify(props)); return; }
     if (req.url.startsWith('/rows')) { const n = new URL(req.url, 'http://x').searchParams.get('sheet') || 'Users'; res.end(JSON.stringify(sheets[n]?.rows ?? [])); return; }
     const out = req.method === 'POST' ? ctx.doPost({ postData: { contents: body } }) : ctx.doGet();
     res.setHeader('Content-Type', 'application/json');

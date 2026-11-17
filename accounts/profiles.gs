@@ -24,7 +24,15 @@
  * the user, nor how many there are; only the developer (DEVELOPER_UIDS
  * script property, or the account with this script owner's own email) can
  * count, list, change, delete or export anyone's prices, or import a
- * price file into the main price database (devImportMain). The account that
+ * price file into the main price database (devImportMain).
+ *
+ * Price history: a new price never overwrites an old one. Each price is kept
+ * with its date ("Price date", the last column of "Rate database" and "User
+ * prices"); pricing uses the newest price of each item. An old price is
+ * removed only when it is more than 5 years old and a newer price of the
+ * same item exists, at the moment a newer price of that item is saved; the
+ * newest price of an item is never removed. Each removal is written to the
+ * "Price history log" sheet (dates only, no prices). The account that
  * owns the price database is not the developer.
  *
  * Password reset: "Forgot password?" on the website asks this script
@@ -297,16 +305,18 @@ function ratesAllowed_(user) {
 }
 
 function getRates_(user) {
+  ensureDates_();
   const props = PropertiesService.getScriptProperties();
   const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+  // Pricing uses the newest price of each item; older ones are kept as history.
   const mine = userPrices_(user.uid);
   const counts = {};
   mine.forEach(function (p) { counts[p.category] = (counts[p.category] || 0) + 1; });
   const extra = { mine: mine.map(function (p) { return { item: p.material, unit: p.unit, supply: p.price, brand: p.brand, category: p.category }; }), developer: isDeveloper_(user) };
   // Price counts are shown to the developer only; other accounts get none.
   if (!s || s.getLastRow() < 2 || !ratesAllowed_(user)) return Object.assign({ ok: true, rates: null }, extra.developer ? { counts: counts } : {}, extra);
-  const rows = s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues();
-  rows.forEach(function (v) { const c = category_(v[8]) || 'Others'; counts[c] = (counts[c] || 0) + 1; });
+  const rows = newest_(mainRows_());
+  rows.forEach(function (r) { const c = category_(r.v[8]) || 'Others'; counts[c] = (counts[c] || 0) + 1; });
   return {
     ok: true,
     counts: extra.developer ? counts : undefined,
@@ -316,7 +326,8 @@ function getRates_(user) {
     updated: props.getProperty('RATES_UPDATED') || '',
     // The Drive copy of the uploaded workbook is shown to the developer only.
     file: extra.developer ? props.getProperty('RATES_FILE') || '' : '',
-    rates: rows.map(function (v) {
+    rates: rows.map(function (r) {
+      const v = r.v;
       return { item: String(v[0]), context: String(v[1]), unit: String(v[2]), supply: v[3] === '' ? null : Number(v[3]), service: v[4] === '' ? null : Number(v[4]), sheet: String(v[5]), row: Number(v[6]) || 0, single: v[7] === true || v[7] === 'Yes' };
     }),
   };
@@ -333,6 +344,13 @@ function money_(v) {
   return v != null && v !== '' && isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : '';
 }
 
+/**
+ * Adds a price database workbook (Rate_Database.xlsx) to the main price
+ * database. Nothing already there is overwritten or removed: each rate is
+ * added with today's date (a rate already there with the same text, unit,
+ * rates and source is not added twice), pricing uses the newest rate of each
+ * item, and old rates go only as KEEP_YEARS allows (keepHistory_).
+ */
 function saveRates_(user, body) {
   const rates = body.rates;
   if (!Array.isArray(rates) || !rates.length || rates.length > 20000) return { ok: false, error: 'The price database has no rates.' };
@@ -343,16 +361,14 @@ function saveRates_(user, body) {
     const owner = props.getProperty('RATES_OWNER');
     if (owner && owner !== user.uid && !isDeveloper_(user)) return { ok: false, error: 'Only the account that first saved the price database can replace it.' };
     if (!owner && !isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can save the main price database.' };
-    const book = SpreadsheetApp.getActive();
-    let s = book.getSheetByName(RATES);
-    if (!s) s = book.insertSheet(RATES);
-    s.clear();
+    ensureDates_();
+    const day = today_();
     const values = rates.map(function (r) {
-      return [text_(r.item, 2000), text_(r.context, 1000), text_(r.unit, 40), money_(r.supply), money_(r.service), text_(r.sheet, 120), Number(r.row) || '', r.single ? 'Yes' : 'No', category_(r.category) || 'Electrical'];
+      return [text_(r.item, 2000), text_(r.context, 1000), text_(r.unit, 40), money_(r.supply), money_(r.service), text_(r.sheet, 120), Number(r.row) || '', r.single ? 'Yes' : 'No', category_(r.category) || 'Electrical', day];
     });
-    s.getRange(1, 1, 1, RATE_HEADERS.length).setValues([RATE_HEADERS]).setFontWeight('bold');
-    s.getRange(2, 1, values.length, RATE_HEADERS.length).setValues(values);
-    s.setFrozenRows(1);
+    const added = addMainRows_(user, values, function (v) { return [v[0], v[1], v[2], v[3], v[4], v[5], v[6]].map(String).join('\u0001'); });
+    if (added.error) return { ok: false, error: added.error };
+    const book = SpreadsheetApp.getActive();
     let a = book.getSheetByName(RATES_ACCESS);
     if (!a) {
       a = book.insertSheet(RATES_ACCESS);
@@ -368,7 +384,7 @@ function saveRates_(user, body) {
     }
     const updated = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM yyyy');
     props.setProperties({ RATES_OWNER: owner || user.uid, RATES_UPLIFT: String(Number(body.uplift) || 0), RATES_UPDATED: updated, RATES_FILE: file || props.getProperty('RATES_FILE') || '' });
-    return { ok: true, count: values.length, updated: updated, file: file };
+    return { ok: true, count: added.added, added: added.added, kept: added.total - added.added, pruned: added.pruned, updated: updated, file: file };
   } finally {
     lock.releaseLock();
   }
@@ -378,6 +394,175 @@ function saveRates_(user, body) {
 const PRICES = 'User prices';
 const PRICE_HEADERS = ['User ID', 'Material', 'Unit', 'Price (₹, excl. GST)', 'Brand', 'Category', 'Added', 'Source file', 'Row ID'];
 const CATEGORIES = ['Electrical', 'Mechanical', 'HVAC', 'CCTV', 'Fire system', 'PA System', 'Others'];
+
+// ---- Price history: every price is kept with its date ----
+// A new price for an item (same material, unit and brand) is added beside
+// the old one, never over it; pricing uses the newest. An old price is
+// removed only when it is more than KEEP_YEARS old AND a newer price of the
+// same item exists, and only when a newer price of that item is saved. The
+// newest price of an item is never removed. The date is the last column of
+// both price sheets, after the columns older script versions read.
+const PRICE_DATE = 'Price date';
+const KEEP_YEARS = 5;
+const HISTORY_LOG = 'Price history log';
+const HISTORY_LOG_HEADERS = ['Time', 'Account', 'Price store', 'Item (material | unit | brand)', 'Old prices removed', 'Their dates'];
+
+/** A date as yyyy-MM-dd ('' when it is not one): Sheets dates, 2026-10-20, 20.10.2026, 20/10/2026, 20 Oct 2026. */
+function isoDay_(v) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? '' : Utilities.formatDate(v, 'Asia/Kolkata', 'yyyy-MM-dd');
+  const t = String(v == null ? '' : v).trim().replace(/^'/, '');
+  if (!t) return '';
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(t);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  m = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/.exec(t);
+  if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  if (/^\d+(\.\d+)?$/.test(t)) return '';
+  const d = new Date(t);
+  return isNaN(d.getTime()) ? '' : Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM-dd');
+}
+
+function today_() {
+  return Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+}
+
+/** Prices dated before this day are old enough to go (when a newer one exists). */
+function keepFrom_() {
+  const t = today_();
+  return (Number(t.slice(0, 4)) - KEEP_YEARS) + t.slice(4);
+}
+
+/** A price's own date from a file: a real day, not in the future; else ''. */
+function priceDay_(v) {
+  const d = isoDay_(v);
+  return d && d >= '1990-01-01' && d <= today_() ? d : '';
+}
+
+/** Brand of a main-database row: 'Make: X' in its Heading column. */
+function mainBrand_(heading) {
+  const t = String(heading || '');
+  return /^Make: /.test(t) ? t.slice(6) : '';
+}
+
+/** Every main-database row with its sheet row, item key and date. */
+function mainRows_() {
+  const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+  if (!s || s.getLastRow() < 2) return [];
+  const n = RATE_HEADERS.length;
+  return s.getRange(2, 1, s.getLastRow() - 1, n + 1).getValues().map(function (v, i) {
+    return { sheetRow: i + 2, v: v.slice(0, n), key: priceKey_(v[0], v[2], mainBrand_(v[1])), date: isoDay_(v[n]), one: /^(Imported: |Changed by the developer)/.test(String(v[5])) };
+  });
+}
+
+/**
+ * The newest price of each item. Of rows on the same newest day, the one
+ * saved last wins when it is a single price ([r.one]: typed, imported or
+ * changed by the developer); the rates of one database workbook (several
+ * BOQs quoting the same item that day) are all kept, as before.
+ */
+function newest_(rows) {
+  const top = {};
+  rows.forEach(function (r) { if (!(r.key in top) || r.date > top[r.key]) top[r.key] = r.date; });
+  const last = {};
+  rows.forEach(function (r) { if (r.date === top[r.key] && (!(r.key in last) || r.sheetRow > last[r.key].sheetRow)) last[r.key] = r; });
+  return rows.filter(function (r) {
+    if (r.date !== top[r.key]) return false;
+    const l = last[r.key];
+    return l.one ? r === l : !r.one;
+  });
+}
+
+/**
+ * Gives every price a date, once, without changing or removing anything: a
+ * main-database row takes the day the database was saved (RATES_UPDATED), a
+ * price added on the website the day it was added. Safe to run again.
+ */
+function ensureDates_() {
+  const book = SpreadsheetApp.getActive();
+  const fill = function (s, n, fallback) {
+    if (!s || s.getLastRow() < 1) return;
+    if (String(s.getRange(1, n).getValues()[0][0]) !== PRICE_DATE) s.getRange(1, n).setValues([[PRICE_DATE]]).setFontWeight('bold');
+    if (s.getLastRow() < 2) return;
+    const range = s.getRange(2, 1, s.getLastRow() - 1, n);
+    const rows = range.getValues();
+    const dates = [];
+    let changed = false;
+    rows.forEach(function (v) {
+      let d = isoDay_(v[n - 1]);
+      if (!d) { d = fallback(v); changed = true; }
+      dates.push([d]);
+    });
+    if (changed) s.getRange(2, n, dates.length, 1).setValues(dates);
+  };
+  const saved = isoDay_(PropertiesService.getScriptProperties().getProperty('RATES_UPDATED')) || today_();
+  fill(book.getSheetByName(RATES), RATE_HEADERS.length + 1, function () { return saved; });
+  fill(book.getSheetByName(PRICES), PRICE_HEADERS.length + 1, function (v) { return isoDay_(v[6]) || today_(); });
+}
+
+/**
+ * Removes the old prices of the items in [keys]: rows more than KEEP_YEARS
+ * old with a newer price of the same item. Logs each item in the "Price
+ * history log" (no prices). [rows]: {sheetRow, key, date} of one price store.
+ */
+function keepHistory_(sheet, rows, keys, user, store) {
+  const from = keepFrom_();
+  const top = {};
+  rows.forEach(function (r) { if (keys[r.key] && (!(r.key in top) || r.date > top[r.key])) top[r.key] = r.date; });
+  const gone = rows.filter(function (r) { return keys[r.key] && r.date && r.date < from && r.date < top[r.key]; });
+  if (!gone.length) return 0;
+  gone.sort(function (a, b) { return b.sheetRow - a.sheetRow; }).forEach(function (r) { sheet.deleteRow(r.sheetRow); });
+  const byKey = {};
+  gone.forEach(function (r) { (byKey[r.key] = byKey[r.key] || []).push(r.date); });
+  const book = SpreadsheetApp.getActive();
+  let log = book.getSheetByName(HISTORY_LOG);
+  if (!log) {
+    log = book.insertSheet(HISTORY_LOG);
+    log.getRange(1, 1, 1, HISTORY_LOG_HEADERS.length).setValues([HISTORY_LOG_HEADERS]).setFontWeight('bold');
+    log.setFrozenRows(1);
+  }
+  const now = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HH:mm');
+  Object.keys(byKey).forEach(function (k) {
+    log.appendRow([now, user.email || user.uid, store, text_(k, 500), byKey[k].length, byKey[k].sort().join(', ')]);
+  });
+  return gone.length;
+}
+
+/**
+ * Adds rows (RATE_HEADERS and the date) to the main price database, skipping
+ * a row that is already there (same [same] value and date), then keeps the
+ * history of the items added. Never clears the sheet.
+ */
+function addMainRows_(user, values, same) {
+  const book = SpreadsheetApp.getActive();
+  let s = book.getSheetByName(RATES);
+  if (!s) s = book.insertSheet(RATES);
+  if (s.getLastRow() < 1) {
+    s.getRange(1, 1, 1, RATE_HEADERS.length + 1).setValues([RATE_HEADERS.concat([PRICE_DATE])]).setFontWeight('bold');
+    s.setFrozenRows(1);
+  }
+  const before = mainRows_();
+  const n = RATE_HEADERS.length;
+  const seen = {};
+  before.forEach(function (r) { seen[same(r.v) + '\u0002' + r.date] = true; });
+  const fresh = values.filter(function (v) {
+    const k = same(v) + '\u0002' + v[n];
+    if (seen[k]) return false;
+    seen[k] = true;
+    return true;
+  });
+  if (before.length + fresh.length > 50000) return { error: 'The main price database would have more than 50000 prices.' };
+  const known = {};
+  before.forEach(function (r) { known[r.key] = true; });
+  const keys = {};
+  let superseded = 0;
+  fresh.forEach(function (v) {
+    const k = priceKey_(v[0], v[2], mainBrand_(v[1]));
+    if (known[k] && !keys[k]) superseded++;
+    keys[k] = true;
+  });
+  if (fresh.length) s.getRange(s.getLastRow() + 1, 1, fresh.length, n + 1).setValues(fresh);
+  const pruned = keepHistory_(s, mainRows_(), keys, user, 'Main price database');
+  return { added: fresh.length, superseded: superseded, pruned: pruned, total: Math.max(0, s.getLastRow() - 1) };
+}
 
 /** The category as written in CATEGORIES, or '' when it is not one of them. */
 function category_(v) {
@@ -416,13 +601,18 @@ function pricesSheet_() {
 function priceRows_() {
   const s = pricesSheet_();
   if (s.getLastRow() < 2) return [];
-  return s.getRange(2, 1, s.getLastRow() - 1, PRICE_HEADERS.length).getValues().map(function (v, i) {
-    return { sheetRow: i + 2, uid: String(v[0]), material: String(v[1]), unit: String(v[2]), price: Number(v[3]) || 0, brand: String(v[4]), category: category_(v[5]) || 'Others', added: v[6] ? String(v[6]) : '', file: String(v[7]), id: String(v[8]) };
+  const n = PRICE_HEADERS.length;
+  return s.getRange(2, 1, s.getLastRow() - 1, n + 1).getValues().map(function (v, i) {
+    const p = { sheetRow: i + 2, uid: String(v[0]), material: String(v[1]), unit: String(v[2]), price: Number(v[3]) || 0, brand: String(v[4]), category: category_(v[5]) || 'Others', added: v[6] instanceof Date ? Utilities.formatDate(v[6], 'Asia/Kolkata', 'yyyy-MM-dd HH:mm') : v[6] ? String(v[6]) : '', file: String(v[7]), id: String(v[8]), date: isoDay_(v[n]) || isoDay_(v[6]) };
+    p.key = priceKey_(p.material, p.unit, p.brand);
+    p.one = true; // an account has one price per item: the last saved wins
+    return p;
   });
 }
 
+/** An account's prices for pricing: the newest of each item. */
 function userPrices_(uid) {
-  return priceRows_().filter(function (p) { return p.uid === uid && p.price > 0; });
+  return newest_(priceRows_().filter(function (p) { return p.uid === uid && p.price > 0; }));
 }
 
 function priceKey_(material, unit, brand) {
@@ -435,13 +625,14 @@ function priceRow_(r) {
   const price = money_(r && r.price);
   const category = category_(r && r.category);
   if (!material || price === '' || !category) return null;
-  return { material: material, unit: text_(r.unit, 40), price: price, brand: text_(r.brand, 120), category: category, file: text_(r.file, 200) };
+  return { material: material, unit: text_(r.unit, 40), price: price, brand: text_(r.brand, 120), category: category, file: text_(r.file, 200), date: priceDay_(r.date) };
 }
 
 /**
- * Adds prices to the caller's own store. mode 'replace': a price with the
- * same material, unit and brand as one already stored takes its place;
- * 'keep': both are kept. Nothing is sent back but the counts.
+ * Adds prices to the caller's own store. A price for an item already there
+ * (same material, unit and brand) is added beside it with its date; pricing
+ * uses the newest, and the old one goes only as keepHistory_ allows. ('mode'
+ * from older websites changes nothing.) Nothing is sent back but the counts.
  */
 function addPrices_(user, body) {
   const rows = Array.isArray(body.rows) ? body.rows : [];
@@ -452,19 +643,29 @@ function addPrices_(user, body) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    ensureDates_();
     const s = pricesSheet_();
-    let replaced = 0;
-    if (body.mode === 'replace') {
-      const keys = {};
-      clean.forEach(function (r) { keys[priceKey_(r.material, r.unit, r.brand)] = true; });
-      const gone = priceRows_().filter(function (p) { return p.uid === user.uid && keys[priceKey_(p.material, p.unit, p.brand)]; });
-      for (let i = gone.length - 1; i >= 0; i--) s.deleteRow(gone[i].sheetRow);
-      replaced = gone.length;
-    }
+    const mine = priceRows_().filter(function (p) { return p.uid === user.uid; });
+    const known = {};
+    const seen = {};
+    mine.forEach(function (p) { known[p.key] = true; seen[p.key + '|' + p.price + '|' + p.date] = true; });
     const now = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HH:mm');
-    const values = clean.map(function (r) { return [user.uid, r.material, r.unit, r.price, r.brand, r.category, now, r.file, Utilities.getUuid()]; });
-    s.getRange(s.getLastRow() + 1, 1, values.length, PRICE_HEADERS.length).setValues(values);
-    return { ok: true, added: values.length, replaced: replaced };
+    const day = today_();
+    const keys = {};
+    let replaced = 0;
+    const values = [];
+    clean.forEach(function (r) {
+      const k = priceKey_(r.material, r.unit, r.brand);
+      const d = r.date || day;
+      if (seen[k + '|' + r.price + '|' + d]) return; // the same price on the same day: already there
+      seen[k + '|' + r.price + '|' + d] = true;
+      if (known[k] && !keys[k]) replaced++;
+      keys[k] = true;
+      values.push([user.uid, r.material, r.unit, r.price, r.brand, r.category, now, r.file, Utilities.getUuid(), d]);
+    });
+    if (values.length) s.getRange(s.getLastRow() + 1, 1, values.length, PRICE_HEADERS.length + 1).setValues(values);
+    const pruned = keepHistory_(s, priceRows_().filter(function (p) { return p.uid === user.uid; }), keys, user, 'Prices of ' + (user.email || user.uid));
+    return { ok: true, added: values.length, replaced: replaced, pruned: pruned };
   } finally {
     lock.releaseLock();
   }
@@ -474,7 +675,11 @@ function addPrices_(user, body) {
 function devUsers_(user) {
   if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
   const counts = {};
-  priceRows_().forEach(function (p) { counts[p.uid] = (counts[p.uid] || 0) + 1; });
+  const all = priceRows_();
+  const uids = {};
+  all.forEach(function (p) { uids[p.uid] = true; });
+  // Items per account (the newest price of each), not every dated row.
+  Object.keys(uids).forEach(function (uid) { counts[uid] = newest_(all.filter(function (p) { return p.uid === uid; })).length; });
   const users = [];
   const s = sheet_();
   if (s.getLastRow() >= 2) {
@@ -486,23 +691,26 @@ function devUsers_(user) {
   Object.keys(counts).forEach(function (uid) {
     if (!users.some(function (u) { return u.uid === uid; })) users.push({ uid: uid, name: '', email: '', count: counts[uid] });
   });
-  const main = SpreadsheetApp.getActive().getSheetByName(RATES);
-  return { ok: true, users: users, mainCount: main ? Math.max(0, main.getLastRow() - 1) : 0 };
+  return { ok: true, users: users, mainCount: newest_(mainRows_()).length };
 }
 
-/** Developer only: one account's prices (target uid), or the main price database (target 'main'). */
+/**
+ * Developer only: one account's prices (target uid), or the main price
+ * database (target 'main'), every dated row: the website shows the newest of
+ * each item and the older ones as its history.
+ */
 function devPrices_(user, body) {
   if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  ensureDates_();
   const target = String(body.target || '');
   if (target === 'main') {
-    const s = SpreadsheetApp.getActive().getSheetByName(RATES);
-    if (!s || s.getLastRow() < 2) return { ok: true, prices: [] };
-    return { ok: true, prices: s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues().map(function (v, i) {
-      return { id: 'row:' + (i + 2) + ':' + String(v[0]).slice(0, 40), material: String(v[0]), unit: String(v[2]), price: v[3] === '' ? null : Number(v[3]), brand: '', category: category_(v[8]) || 'Others', service: v[4] === '' ? null : Number(v[4]), context: String(v[1]) };
+    return { ok: true, dated: true, prices: mainRows_().map(function (r) {
+      const v = r.v;
+      return { id: 'row:' + r.sheetRow + ':' + String(v[0]).slice(0, 40), material: String(v[0]), unit: String(v[2]), price: v[3] === '' ? null : Number(v[3]), brand: mainBrand_(v[1]), category: category_(v[8]) || 'Others', service: v[4] === '' ? null : Number(v[4]), context: String(v[1]), file: String(v[5]), date: r.date };
     }) };
   }
-  return { ok: true, prices: priceRows_().filter(function (p) { return p.uid === target; }).map(function (p) {
-    return { id: p.id, material: p.material, unit: p.unit, price: p.price, brand: p.brand, category: p.category, added: p.added, file: p.file };
+  return { ok: true, dated: true, prices: priceRows_().filter(function (p) { return p.uid === target; }).map(function (p) {
+    return { id: p.id, material: p.material, unit: p.unit, price: p.price, brand: p.brand, category: p.category, added: p.added, file: p.file, date: p.date };
   }) };
 }
 
@@ -514,6 +722,12 @@ function mainRow_(id) {
   return String(s.getRange(Number(m[1]), 1).getValue()).slice(0, 40) === m[2] ? Number(m[1]) : 0;
 }
 
+/**
+ * Developer only: changes a price. A new price for the same item (same
+ * material, unit and brand) is added as a new dated row, so the old one stays
+ * in its history; changing the item's name, unit, brand or category corrects
+ * the row itself.
+ */
 function devUpdatePrice_(user, body) {
   if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
   const r = priceRow_(body.price || {});
@@ -521,18 +735,39 @@ function devUpdatePrice_(user, body) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    ensureDates_();
+    const key = priceKey_(r.material, r.unit, r.brand);
     if (body.target === 'main') {
       const n = mainRow_(body.id);
       if (!n) return { ok: false, error: 'That line has changed since the list was loaded. Reload and try again.' };
       const s = SpreadsheetApp.getActive().getSheetByName(RATES);
+      const v = s.getRange(n, 1, 1, RATE_HEADERS.length + 1).getValues()[0];
+      if (priceKey_(v[0], v[2], mainBrand_(v[1])) === key && Number(v[3]) !== r.price) {
+        const row = v.slice(0, RATE_HEADERS.length);
+        row[3] = r.price;
+        row[5] = 'Changed by the developer';
+        row[8] = r.category;
+        const added = addMainRows_(user, [row.concat([today_()])], function (x) { return [x[0], x[1], x[2], x[3], x[4], x[5], x[6]].map(String).join('\u0001'); });
+        return { ok: true, added: added.added };
+      }
       s.getRange(n, 1).setValue(r.material);
       s.getRange(n, 3, 1, 2).setValues([[r.unit, r.price]]);
       s.getRange(n, 9).setValue(r.category);
       return { ok: true };
     }
-    const p = priceRows_().filter(function (x) { return x.id === String(body.id) && x.uid === String(body.target); })[0];
+    const target = String(body.target);
+    const p = priceRows_().filter(function (x) { return x.id === String(body.id) && x.uid === target; })[0];
     if (!p) return { ok: false, error: 'That price is no longer there. Reload the list.' };
-    pricesSheet_().getRange(p.sheetRow, 2, 1, 5).setValues([[r.material, r.unit, r.price, r.brand, r.category]]);
+    const s = pricesSheet_();
+    if (p.key === key && p.price !== r.price) {
+      const now = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HH:mm');
+      s.getRange(s.getLastRow() + 1, 1, 1, PRICE_HEADERS.length + 1).setValues([[target, r.material, r.unit, r.price, r.brand, r.category, now, 'Changed by the developer', Utilities.getUuid(), today_()]]);
+      const keys = {};
+      keys[key] = true;
+      keepHistory_(s, priceRows_().filter(function (x) { return x.uid === target; }), keys, user, 'Prices of ' + target);
+      return { ok: true, added: 1 };
+    }
+    s.getRange(p.sheetRow, 2, 1, 5).setValues([[r.material, r.unit, r.price, r.brand, r.category]]);
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -563,55 +798,34 @@ function devDeletePrices_(user, body) {
 }
 
 /**
- * Developer only: puts arranged prices (from "Import price file") into the
- * main price database. mode 'replace': the whole database becomes these
- * prices; 'add': each price is added, and one with the same material, unit
- * and brand as a row already there takes its place. The brand goes in the
- * "Heading" column as 'Make: <brand>', the file in "Source sheet" as
- * 'Imported: <file>'. Prices are stored as given (no uplift).
+ * Developer only: adds arranged prices (from "Import price file") to the
+ * main price database, each with its date (the file's own date, or today).
+ * Nothing is overwritten or removed: pricing uses the newest price of each
+ * item and old ones go only as keepHistory_ allows. There is no 'replace'.
+ * The brand goes in the "Heading" column as 'Make: <brand>', the file in
+ * "Source sheet" as 'Imported: <file>'. Prices are stored as given (no uplift).
  */
 function devImportMain_(user, body) {
   if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
-  const mode = body.mode === 'replace' ? 'replace' : 'add';
+  if (body.mode === 'replace') return { ok: false, error: 'The main price database is never replaced: imported prices are added, and older prices are kept as history.' };
   const rows = Array.isArray(body.rows) ? body.rows : [];
   if (!rows.length || rows.length > 20000) return { ok: false, error: 'Send between 1 and 20000 prices at a time.' };
   const clean = rows.map(priceRow_);
   const bad = clean.filter(function (r) { return !r; }).length;
   if (bad) return { ok: false, error: bad + ' price(s) have no material name, no price above 0 or an unknown category.' };
-  const key = function (material, unit, brand) {
-    return [material, unit, brand].map(function (v) { return String(v || '').trim().toLowerCase().replace(/\s+/g, ' '); }).join('|');
-  };
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const props = PropertiesService.getScriptProperties();
-    const book = SpreadsheetApp.getActive();
-    let s = book.getSheetByName(RATES);
-    if (!s) s = book.insertSheet(RATES);
-    const fresh = clean.map(function (r) {
-      return [r.material, r.brand ? 'Make: ' + r.brand : '', r.unit, r.price, '', text_('Imported: ' + (r.file || 'price file'), 120), '', 'No', r.category];
+    ensureDates_();
+    const day = today_();
+    const values = clean.map(function (r) {
+      return [r.material, r.brand ? 'Make: ' + r.brand : '', r.unit, r.price, '', text_('Imported: ' + (r.file || 'price file'), 120), '', 'No', r.category, r.date || day];
     });
-    let kept = [];
-    let replaced = 0;
-    if (mode === 'add' && s.getLastRow() >= 2) {
-      const incoming = {};
-      fresh.forEach(function (v) { incoming[key(v[0], v[2], String(v[1]).replace(/^Make: /, ''))] = true; });
-      s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues().forEach(function (v) {
-        const brand = /^Make: /.test(String(v[1])) ? String(v[1]).slice(6) : '';
-        if (incoming[key(v[0], v[2], brand)]) replaced++; else kept.push(v);
-      });
-    }
-    const values = kept.concat(fresh);
-    if (values.length > 20000) return { ok: false, error: 'The main price database would have more than 20000 prices.' };
-    s.clear();
-    s.getRange(1, 1, 1, RATE_HEADERS.length).setValues([RATE_HEADERS]).setFontWeight('bold');
-    s.getRange(2, 1, values.length, RATE_HEADERS.length).setValues(values);
-    s.setFrozenRows(1);
-    const updated = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM yyyy');
-    const set = { RATES_UPDATED: updated };
-    if (mode === 'replace') set.RATES_UPLIFT = '0';
-    props.setProperties(set);
-    return { ok: true, added: fresh.length, replaced: mode === 'replace' ? kept.length : replaced, total: values.length, updated: updated };
+    // The same item at the same price on the same day is not added twice.
+    const added = addMainRows_(user, values, function (v) { return [priceKey_(v[0], v[2], mainBrand_(v[1])), Number(v[3])].join('\u0001'); });
+    if (added.error) return { ok: false, error: added.error };
+    PropertiesService.getScriptProperties().setProperties({ RATES_UPDATED: Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM yyyy') });
+    return { ok: true, added: added.added, replaced: added.superseded, pruned: added.pruned, total: added.total };
   } finally {
     lock.releaseLock();
   }
