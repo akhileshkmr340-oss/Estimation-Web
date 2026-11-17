@@ -23,7 +23,8 @@
  * used only for that account's pricing. The website never lists them for
  * the user, nor how many there are; only the developer (DEVELOPER_UIDS
  * script property, or the account with this script owner's own email) can
- * count, list, change, delete or export anyone's prices. The account that
+ * count, list, change, delete or export anyone's prices, or import a
+ * price file into the main price database (devImportMain). The account that
  * owns the price database is not the developer.
  *
  * Password reset: "Forgot password?" on the website asks this script
@@ -79,6 +80,7 @@ function doPost(e) {
     if (body.action === 'devPrices') return reply_(devPrices_(user, body));
     if (body.action === 'devUpdatePrice') return reply_(devUpdatePrice_(user, body));
     if (body.action === 'devDeletePrices') return reply_(devDeletePrices_(user, body));
+    if (body.action === 'devImportMain') return reply_(devImportMain_(user, body));
     if (body.action === 'devCheck') return reply_({ ok: true, developer: isDeveloper_(user), uid: user.uid });
     if (body.action === 'devProfiles') return reply_(devProfiles_(user));
     if (body.action === 'devDeleteUserData') return reply_(devDeleteUserData_(user, body));
@@ -555,6 +557,61 @@ function devDeletePrices_(user, body) {
     }
     rows.sort(function (a, b) { return b - a; }).forEach(function (n) { s.deleteRow(n); });
     return { ok: true, deleted: rows.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Developer only: puts arranged prices (from "Import price file") into the
+ * main price database. mode 'replace': the whole database becomes these
+ * prices; 'add': each price is added, and one with the same material, unit
+ * and brand as a row already there takes its place. The brand goes in the
+ * "Heading" column as 'Make: <brand>', the file in "Source sheet" as
+ * 'Imported: <file>'. Prices are stored as given (no uplift).
+ */
+function devImportMain_(user, body) {
+  if (!isDeveloper_(user)) return { ok: false, error: 'Only the Arzimate developer can do this.' };
+  const mode = body.mode === 'replace' ? 'replace' : 'add';
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  if (!rows.length || rows.length > 20000) return { ok: false, error: 'Send between 1 and 20000 prices at a time.' };
+  const clean = rows.map(priceRow_);
+  const bad = clean.filter(function (r) { return !r; }).length;
+  if (bad) return { ok: false, error: bad + ' price(s) have no material name, no price above 0 or an unknown category.' };
+  const key = function (material, unit, brand) {
+    return [material, unit, brand].map(function (v) { return String(v || '').trim().toLowerCase().replace(/\s+/g, ' '); }).join('|');
+  };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const book = SpreadsheetApp.getActive();
+    let s = book.getSheetByName(RATES);
+    if (!s) s = book.insertSheet(RATES);
+    const fresh = clean.map(function (r) {
+      return [r.material, r.brand ? 'Make: ' + r.brand : '', r.unit, r.price, '', text_('Imported: ' + (r.file || 'price file'), 120), '', 'No', r.category];
+    });
+    let kept = [];
+    let replaced = 0;
+    if (mode === 'add' && s.getLastRow() >= 2) {
+      const incoming = {};
+      fresh.forEach(function (v) { incoming[key(v[0], v[2], String(v[1]).replace(/^Make: /, ''))] = true; });
+      s.getRange(2, 1, s.getLastRow() - 1, RATE_HEADERS.length).getValues().forEach(function (v) {
+        const brand = /^Make: /.test(String(v[1])) ? String(v[1]).slice(6) : '';
+        if (incoming[key(v[0], v[2], brand)]) replaced++; else kept.push(v);
+      });
+    }
+    const values = kept.concat(fresh);
+    if (values.length > 20000) return { ok: false, error: 'The main price database would have more than 20000 prices.' };
+    s.clear();
+    s.getRange(1, 1, 1, RATE_HEADERS.length).setValues([RATE_HEADERS]).setFontWeight('bold');
+    s.getRange(2, 1, values.length, RATE_HEADERS.length).setValues(values);
+    s.setFrozenRows(1);
+    const updated = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM yyyy');
+    const set = { RATES_UPDATED: updated };
+    if (mode === 'replace') set.RATES_UPLIFT = '0';
+    props.setProperties(set);
+    return { ok: true, added: fresh.length, replaced: mode === 'replace' ? kept.length : replaced, total: values.length, updated: updated };
   } finally {
     lock.releaseLock();
   }
