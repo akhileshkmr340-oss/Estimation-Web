@@ -93,6 +93,9 @@
     <div class="bar"><div id="jobBar"></div></div>
     <div id="jobText" style="white-space: pre-line"></div>
     <button id="downloadBtn" class="hidden" type="button">Download priced workbook</button>
+    <button id="learnBtn" class="hidden secondary" type="button" title="Correct rates in the priced workbook (Rate, Unit Cost or the Backup sheet), save it, and upload it here: the agent prices the same items at your rates from then on.">Upload corrected workbook</button>
+    <input id="learnFile" type="file" accept=".xlsx" class="hidden">
+    <div id="learnText" class="muted" style="white-space: pre-line"></div>
     <div id="review" class="hidden"></div>
     <button id="confirmBtn" class="hidden" type="button">Price with these feeders</button>
     <button id="cancelBtn" class="hidden secondary" type="button">Cancel pricing</button>
@@ -342,6 +345,7 @@
   // ---- Watch a job ----
   let timer = null;
   let current = null;
+  let learnFor = null; // the job whose corrections result is shown
   function stopWatch() { if (timer) clearTimeout(timer); timer = null; current = null; }
 
   function watch(jobId) {
@@ -386,6 +390,12 @@
       const s = j.sources;
       text += ` · ${j.total} lines; parts from your past rates: ${s.db || 0}, online: ${s.web || 0}, AI estimates: ${s.estimate || 0}. ` +
         'Lines marked CHECK or NOT FULLY PRICED in the Backup sheet need a look before sending.';
+      // The estimation team: which specialist priced how many lines (the Backup sheet names
+      // the specialist at the end of each line's notes), and the kind of project they allowed for.
+      if (j.team) {
+        const team = Object.entries(j.team).sort((a, b) => b[1] - a[1]).map(([who, n]) => `${who} ${n}`).join(', ');
+        text += `\nEstimation team${j.project ? ` (${j.project} project)` : ''}: ${team}.`;
+      }
     }
     $('jobText').textContent = text;
     $('jobError').textContent = j.status === 'failed' ? j.error : '';
@@ -393,6 +403,12 @@
     show('cancelBtn', !FINISHED.includes(j.status));
     $('cancelBtn').onclick = () => cancel(j.jobId, $('cancelBtn'));
     $('downloadBtn').onclick = () => download(j.jobId, $('downloadBtn'));
+    // Learning from corrections: the priced workbook back with the user's own rates.
+    show('learnBtn', j.status === 'done');
+    if (learnFor !== j.jobId) $('learnText').textContent = '';
+    learnFor = j.jobId;
+    $('learnBtn').onclick = () => $('learnFile').click();
+    $('learnFile').onchange = () => learn(j.jobId);
     renderReview(j);
   }
 
@@ -492,6 +508,32 @@
     } finally {
       button.disabled = false;
       button.textContent = button.id === 'cancelBtn' ? 'Cancel pricing' : 'Cancel';
+    }
+  }
+
+  // ---- Learning from corrections ----
+  // The user corrects rates in the priced workbook and uploads it: every line whose cost changed
+  // is kept as the user's own rate (their account only) and prices the same item first next time.
+  async function learn(jobId) {
+    const file = $('learnFile').files[0];
+    $('learnFile').value = '';
+    if (!file) return;
+    const button = $('learnBtn');
+    button.disabled = true;
+    $('learnText').textContent = 'Reading your corrections…';
+    try {
+      const r = await call('agentLearn', { jobId, data: toBase64(await file.arrayBuffer()) });
+      const inr = (v) => '₹' + Math.round(v || 0).toLocaleString('en-IN');
+      $('learnText').textContent = r.learned
+        ? `Learned ${r.learned} corrected rate(s) out of ${r.checked} lines. The agent prices these items at your rates from now on:\n` +
+          r.lines.slice(0, 15).map((l) => `• Row ${l.row}: ${l.description} — cost ${inr(l.was)} → ${inr(l.now)}`).join('\n') +
+          (r.lines.length > 15 ? `\n…and ${r.learned - 15} more.` : '')
+        : `No changed rates found in ${r.checked} lines. Change a Rate, a Unit Cost or a part rate in the Backup sheet, save, and upload again.` +
+          (r.skipped ? ` (${r.skipped} line(s) did not match this BOQ.)` : '');
+    } catch (e) {
+      $('learnText').textContent = message(e);
+    } finally {
+      button.disabled = false;
     }
   }
 
