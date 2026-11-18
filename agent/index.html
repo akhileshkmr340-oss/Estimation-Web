@@ -93,7 +93,7 @@
     <div class="bar"><div id="jobBar"></div></div>
     <div id="jobText" style="white-space: pre-line"></div>
     <button id="downloadBtn" class="hidden" type="button">Download priced workbook</button>
-    <button id="learnBtn" class="hidden secondary" type="button" title="Correct rates in the priced workbook (Rate, Unit Cost or the Backup sheet), save it, and upload it here: the agent prices the same items at your rates from then on.">Upload corrected workbook</button>
+    <button id="learnBtn" class="hidden ghost" type="button" title="Correct rates in the priced workbook (Rate, Unit Cost or the Backup sheet), save it, and upload it here: the agent prices the same items at your rates from then on.">Upload corrected workbook</button>
     <input id="learnFile" type="file" accept=".xlsx" class="hidden">
     <div id="learnText" class="muted" style="white-space: pre-line"></div>
     <div id="review" class="hidden"></div>
@@ -108,6 +108,17 @@
       <thead><tr><th>BOQ</th><th>Status</th><th>Lines</th><th></th></tr></thead>
       <tbody id="history"></tbody>
     </table>
+  </section>
+
+  <section class="card hidden" id="designCard">
+    <h2>Design calculators</h2>
+    <div class="muted">Cable size, breaker, busbar, short-circuit level, transformer, MV feeder, cooling load, duct, pump head, sprinklers and detectors, CCTV storage and PA amplifier, worked out from the IEC, NFPA and SMACNA rules with every step shown. Confirm the final design in the maker's tool (SIMARIS, Ecodial, DOC) or with the consultant.</div>
+    <label for="designCalc">Calculation</label>
+    <select id="designCalc"><option value="">Loading…</option></select>
+    <div id="designFields"></div>
+    <button id="designBtn" type="button">Calculate</button>
+    <div id="designOut" style="white-space: pre-line; margin-top: 12px"></div>
+    <div class="error" id="designError"></div>
   </section>
 </main>
 
@@ -166,9 +177,100 @@
     show('loginCard', !user);
     show('startCard', !!user);
     show('historyCard', !!user);
+    show('designCard', !!user);
     if (!user) { show('jobCard', false); stopWatch(); return; }
     loadHistory(true);
+    loadDesign();
   });
+
+  // ---- Design calculators ----
+  // The list and the fields come from the agent (design.js), so a new calculator needs no page change.
+  let designs = null;
+  async function loadDesign() {
+    if (designs) return;
+    try {
+      designs = (await call('agentDesign', { calc: 'list' })).calcs || [];
+    } catch (e) {
+      $('designCalc').innerHTML = '<option value="">Not available</option>';
+      $('designError').textContent = message(e);
+      return;
+    }
+    const sel = $('designCalc');
+    sel.innerHTML = '';
+    for (const c of designs) {
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = c.trade + ': ' + c.title;
+      sel.appendChild(o);
+    }
+    sel.onchange = designFields;
+    $('designBtn').onclick = runDesign;
+    designFields();
+  }
+  function designFields() {
+    const c = (designs || []).find((x) => x.id === $('designCalc').value);
+    const box = $('designFields');
+    box.innerHTML = '';
+    $('designOut').textContent = '';
+    $('designError').textContent = '';
+    if (!c) return;
+    for (const f of c.fields) {
+      const label = document.createElement('label');
+      label.textContent = f.label;
+      label.htmlFor = 'dz_' + f.key;
+      let input;
+      if (f.options) {
+        input = document.createElement('select');
+        for (const v of f.options) {
+          const o = document.createElement('option');
+          o.value = v;
+          o.textContent = v === '' ? 'no' : v;
+          input.appendChild(o);
+        }
+      } else {
+        input = document.createElement('input');
+        input.type = 'number';
+        input.step = 'any';
+      }
+      input.id = 'dz_' + f.key;
+      input.dataset.key = f.key;
+      input.value = f.value;
+      box.appendChild(label);
+      box.appendChild(input);
+    }
+  }
+  async function runDesign() {
+    const calc = $('designCalc').value;
+    if (!calc) return;
+    const input = {};
+    for (const el of $('designFields').querySelectorAll('[data-key]')) input[el.dataset.key] = el.value;
+    const button = $('designBtn');
+    button.disabled = true;
+    $('designError').textContent = '';
+    $('designOut').textContent = 'Calculating…';
+    try {
+      const r = await call('agentDesign', { calc, input });
+      const show1 = (v) => (v === null || v === undefined || v === '' ? '-' : typeof v === 'number' ? v.toLocaleString('en-IN') : String(v));
+      // "sizeMm2" → "Size (mm²)", "atLvBusKA" → "At lv bus (kA)".
+      const UNITS = [[/Mm2$/, 'mm²'], [/Pct$/, '%'], [/KVA$/, 'kVA'], [/KA$/, 'kA'], [/KW$/, 'kW'], [/TB$/, 'TB'], [/Ms$/, 'm/s'], [/Watts$/, 'W'], [/M$/, 'm'], [/A$/, 'A']];
+      const SAME = { tr: 'TR', cfm: 'CFM', kW: 'kW', ctRatio: 'CT ratio' };
+      const words = (k) => {
+        if (SAME[k]) return SAME[k];
+        let unit = '';
+        for (const [re, u] of UNITS) if (re.test(k)) { unit = ' (' + u + ')'; k = k.replace(re, ''); break; }
+        return k.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, (x) => x.toUpperCase()) + unit;
+      };
+      $('designOut').textContent =
+        'Result\n' + Object.entries(r.result || {}).map(([k, v]) => '• ' + words(k) + ': ' + show1(v)).join('\n') +
+        '\n\nHow it was worked out\n' + (r.steps || []).map((x) => '• ' + x).join('\n') +
+        '\n\nBasis\n' + (r.basis || []).map((x) => '• ' + x).join('\n');
+    } catch (e) {
+      $('designOut').textContent = '';
+      $('designError').textContent = message(e);
+    } finally {
+      button.disabled = false;
+    }
+  }
 
   // ---- Start a job ----
   function toBase64(buffer) {
