@@ -31,6 +31,15 @@
   .board textarea { width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: 14px/1.5 ui-monospace, Consolas, monospace; resize: vertical; }
   button.ghost { background: none; color: var(--accent); }
   input[type=number] { width: 120px; }
+  textarea, input[type=text] { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; box-sizing: border-box; }
+  .team-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .team-list button { margin: 0; padding: 6px 12px; font-size: 0.9em; background: none; color: var(--accent); }
+  .team-list button.on { background: var(--accent); color: var(--accent-text); }
+  .team-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .team-row > div { flex: 1 1 140px; }
+  .team-parts { width: 100%; border-collapse: collapse; font-size: 0.9em; margin-top: 8px; }
+  .team-parts th, .team-parts td { border-bottom: 1px solid var(--line); padding: 5px 6px; text-align: left; vertical-align: top; }
+  .team-parts td.n { text-align: right; white-space: nowrap; }
   button { font: inherit; padding: 9px 18px; border-radius: 20px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-text); cursor: pointer; margin-top: 14px; }
   button.secondary { background: none; color: var(--warn); border-color: var(--warn); margin-left: 8px; }
   button.link { background: none; color: var(--accent); border: none; padding: 0; margin: 0; text-decoration: underline; border-radius: 0; }
@@ -120,6 +129,23 @@
     <div id="designOut" style="white-space: pre-line; margin-top: 12px"></div>
     <div class="error" id="designError"></div>
   </section>
+
+  <section class="card hidden" id="teamCard">
+    <h2>Estimation team</h2>
+    <div class="muted">Every BOQ line goes to the specialist of its trade automatically. Here you can choose a specialist yourself and ask the price of one item: it is priced the same way as a BOQ line (your past rates and corrections, your shops, then AI), with its parts and sources.</div>
+    <div id="teamList" class="team-list"></div>
+    <div id="teamChecklist" class="muted" style="white-space: pre-line; margin-top: 10px"></div>
+    <label for="teamItem">Item description</label>
+    <textarea id="teamItem" rows="3" placeholder="e.g. Supply, installation, testing and commissioning of 2 TR hi-wall split AC with copper piping up to 5 m"></textarea>
+    <div class="team-row">
+      <div><label for="teamUom">Unit</label><input id="teamUom" type="text" value="Nos"></div>
+      <div><label for="teamQty">Quantity</label><input id="teamQty" type="number" step="any" value="1"></div>
+      <div><label for="teamSector">Project</label><select id="teamSector"><option value="">Not stated</option></select></div>
+    </div>
+    <button id="teamBtn" type="button">Ask the specialist</button>
+    <div id="teamOut" style="margin-top: 12px"></div>
+    <div class="error" id="teamError"></div>
+  </section>
 </main>
 
 <script src="../accounts-config.js"></script>
@@ -178,10 +204,81 @@
     show('startCard', !!user);
     show('historyCard', !!user);
     show('designCard', !!user);
+    show('teamCard', !!user);
     if (!user) { show('jobCard', false); stopWatch(); return; }
     loadHistory(true);
     loadDesign();
+    loadTeam();
   });
+
+  // ---- Estimation team ----
+  // The specialists come from the agent (trades.js); the chosen one prices one item.
+  let team = null;
+  let chosen = null;
+  async function loadTeam() {
+    if (team) return;
+    try {
+      team = await call('agentTeam', { action: 'list' });
+    } catch (e) {
+      $('teamError').textContent = message(e);
+      return;
+    }
+    const list = $('teamList');
+    list.innerHTML = '';
+    for (const sp of team.specialists) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = sp.name;
+      b.onclick = () => chooseSpecialist(sp.id);
+      b.dataset.id = sp.id;
+      list.appendChild(b);
+    }
+    const sel = $('teamSector');
+    for (const sc of team.sectors) {
+      const o = document.createElement('option');
+      o.value = sc.id;
+      o.textContent = sc.name;
+      sel.appendChild(o);
+    }
+    $('teamBtn').onclick = askTeam;
+    chooseSpecialist(team.specialists[0].id);
+  }
+  function chooseSpecialist(id) {
+    chosen = (team.specialists || []).find((x) => x.id === id) || null;
+    for (const b of $('teamList').querySelectorAll('button')) b.classList.toggle('on', b.dataset.id === id);
+    $('teamChecklist').textContent = chosen ? chosen.name + ' never misses:\n' + chosen.checklist.map((l) => '• ' + l).join('\n') : '';
+    $('teamBtn').textContent = chosen ? 'Ask the ' + chosen.name : 'Ask the specialist';
+  }
+  async function askTeam() {
+    if (!chosen) return;
+    const description = $('teamItem').value.trim();
+    $('teamError').textContent = '';
+    if (description.length < 8) { $('teamError').textContent = 'Describe the item first.'; return; }
+    const button = $('teamBtn');
+    button.disabled = true;
+    $('teamOut').textContent = 'The ' + chosen.name + ' is pricing the item… (usually under a minute)';
+    try {
+      const margin = Number($('margin').value) >= 0 ? Number($('margin').value) / 100 : undefined;
+      const r = await call('agentTeam', { action: 'quote', trade: chosen.id, description, uom: $('teamUom').value, quantity: $('teamQty').value, sector: $('teamSector').value, margin });
+      const inr = (v) => (v === null || v === undefined ? '-' : '₹' + Number(v).toLocaleString('en-IN', { maximumFractionDigits: 2 }));
+      const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const rows = r.parts.map((p) => '<tr><td>' + esc(p.kind) + '</td><td>' + esc(p.name) + (p.spec ? '<br><span class="muted">' + esc(p.spec) + '</span>' : '') +
+        '</td><td class="n">' + esc(p.qty) + ' ' + esc(p.uom) + '</td><td class="n">' + inr(p.rate) + '</td><td class="n">' + inr(p.amount) + '</td><td class="muted">' + esc(p.source) + '</td></tr>').join('');
+      $('teamOut').innerHTML =
+        '<div><b>' + esc(r.specialist) + '</b>' + (r.project ? ' · ' + esc(r.project) + ' project' : '') + '</div>' +
+        '<table class="team-parts"><thead><tr><th>Part</th><th>Item</th><th>Qty / unit</th><th>Rate</th><th>Amount</th><th>Source</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+        '<div style="margin-top: 8px">Cost per unit: supply ' + inr(r.perUnit.supplyCost) + ' (material with transport) + installation ' + inr(r.perUnit.installationCost) + ' = ' + inr(r.perUnit.cost) + '</div>' +
+        '<div><b>Rate at ' + Math.round(r.margin * 100) + '% margin: supply ' + inr(r.rate.supply) + ' + installation ' + inr(r.rate.installation) + ' = ' + inr(r.rate.total) + ' per ' + esc($('teamUom').value || 'unit') + '</b>' +
+        (r.quantity > 1 ? '; for ' + esc(r.quantity) + ': ' + inr(r.amount) : '') + '</div>' +
+        (r.notes ? '<div class="muted" style="margin-top: 6px">' + esc(r.notes) + '</div>' : '') +
+        '<div class="muted" style="margin-top: 6px">' + r.questionsLeftToday + ' question(s) left today.</div>';
+    } catch (e) {
+      $('teamOut').textContent = '';
+      $('teamError').textContent = message(e);
+    } finally {
+      button.disabled = false;
+    }
+  }
 
   // ---- Design calculators ----
   // The list and the fields come from the agent (design.js), so a new calculator needs no page change.
