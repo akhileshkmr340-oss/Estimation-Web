@@ -69,9 +69,12 @@
   <section class="card hidden" id="startCard">
     <h2>Price a BOQ</h2>
     <p class="lead">Your workbook comes back unchanged, with margin, total and Grand Total columns, a Summary, and a Backup sheet that shows how every rate was built up. Choose several BOQ files to price them together: each comes back as its own workbook.</p>
+    <p class="lead">Panel or substation enquiry without a BOQ? Choose the specification or scope (Word or PDF): you get a full offer pack, a priced offer workbook with BOM (Siemens, Schneider, ABB), compliance matrix and terms, plus an SLD and a GA drawing in PDF for each option or panel.</p>
     <form id="startForm">
-      <label for="file">Client BOQ files (.xlsx, one or more)</label>
-      <input id="file" type="file" accept=".xlsx" multiple required>
+      <label for="file">Client BOQ files (.xlsx), or a panel specification / scope (.docx, .pdf)</label>
+      <input id="file" type="file" accept=".xlsx,.docx,.pdf" multiple required>
+      <label for="company">Your company name, for the offer and drawings (optional)</label>
+      <input id="company" type="text" maxlength="60" autocomplete="organization">
       <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
       <input id="drawings" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
       <div class="hint">Panels and DBs drawn in these SLDs are priced from their feeders. To use them with “Compute with AI Agent”, add them here before computing.</div>
@@ -190,15 +193,18 @@
   const STATUS = {
     queued: 'Waiting to start',
     reading: 'Reading the BOQ',
+    readingOffer: 'Reading the specification',
     drawings: 'Reading the SLD drawings',
     review: 'Waiting for your check of the drawings',
     pricing: 'Pricing the lines',
     writing: 'Writing the priced workbook',
+    writingOffer: 'Writing the offer pack and drawings',
     done: 'Done',
     failed: 'Failed',
     cancelled: 'Cancelled',
   };
 
+  try { $('company').value = localStorage.getItem('agentCompany') || ''; } catch (_) {}
   auth.onAuthStateChanged((user) => {
     show('loginCard', !user);
     show('startCard', !!user);
@@ -460,6 +466,18 @@
       }
     }
   }
+  // The text of a PDF specification, line by line (a scanned PDF has none: the server says so).
+  async function pdfText(file) {
+    const lib = await loadPdfjs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = [];
+    for (let p = 1; p <= Math.min(doc.numPages, 200); p++) {
+      const content = await (await doc.getPage(p)).getTextContent();
+      pages.push(content.items.map((it) => (it.str || '') + (it.hasEOL ? '\n' : '')).join(''));
+    }
+    return pages.join('\n').slice(0, 400000);
+  }
+
   // Sends the chosen drawings; returns their batch id, or null when none were chosen.
   async function sendDrawings(files, progress) {
     if (!files.length) return null;
@@ -480,8 +498,9 @@
   async function start(files, project) {
     const at = Date.now(); // one start time for the files sent together (Drive file names)
     $('startError').textContent = '';
-    const bad = files.map((f) => !/\.xlsx$/i.test(f.name)
-      ? `${f.name}: choose an Excel .xlsx file (save .xls files as .xlsx first).`
+    const bad = files.map((f) => !/\.(xlsx|docx|pdf)$/i.test(f.name)
+      ? `${f.name}: choose an Excel .xlsx BOQ (save .xls as .xlsx first), or a specification in Word .docx or PDF.`
+      : /\.pdf$/i.test(f.name) && !f.file ? `${f.name}: choose the PDF in the form above.`
       : f.size > 8 * 1024 * 1024 ? `${f.name}: the file must be under 8 MB.` : '').filter(Boolean);
     if (bad.length) { $('startError').textContent = bad.join('\n'); return false; }
     const margin = Math.min(100, Math.max(0, $('margin').value === '' ? 20 : Number($('margin').value) || 0)) / 100;
@@ -494,6 +513,14 @@
       for (const [i, f] of files.entries()) {
         $('startBtn').textContent = files.length > 1 ? `Uploading BOQ ${i + 1} of ${files.length}…` : 'Uploading the BOQ…';
         try {
+          // A specification: an offer pack job. PDFs are read here (their text only).
+          if (/\.(docx|pdf)$/i.test(f.name)) {
+            const company = $('company').value.trim();
+            try { localStorage.setItem('agentCompany', company); } catch (_) {}
+            const sent = /\.pdf$/i.test(f.name) ? { text: await pdfText(f.file) } : { data: await f.data() };
+            ({ jobId: last } = await call('agentStart', { fileName: f.name, ...sent, margin, panelSpec: $('panelSpec').value, company }));
+            continue;
+          }
           const data = await f.data();
           ({ jobId: last } = await call('agentStart', { fileName: f.name, data, margin, drawings, panelSpec: $('panelSpec').value }));
           // To the website around this panel: with Google Drive saving on, it files this BOQ and,
@@ -522,7 +549,7 @@
 
   $('startForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const files = [...$('file').files].map((file) => ({ name: file.name, size: file.size, data: async () => toBase64(await file.arrayBuffer()) }));
+    const files = [...$('file').files].map((file) => ({ name: file.name, size: file.size, file, data: async () => toBase64(await file.arrayBuffer()) }));
     if (!files.length) return;
     if (await start(files)) $('file').value = '';
   });
@@ -575,8 +602,10 @@
     $('jobName').textContent = j.fileName;
     const pct = j.status === 'done' ? 100 : j.total ? Math.round((j.done / j.total) * 90) + 5 : j.status === 'reading' ? 3 : 1;
     $('jobBar').style.width = pct + '%';
-    let text = STATUS[j.status] || j.status;
-    if (j.status === 'pricing' && j.total) text += ` · ${j.done} of ${j.total} lines`;
+    const offer = j.kind === 'offer';
+    let text = (offer && STATUS[j.status + 'Offer']) || STATUS[j.status] || j.status;
+    if (j.status === 'pricing' && j.total) text += ` · ${j.done} of ${j.total} ${offer ? 'items' : 'lines'}`;
+    if (offer && j.offer && j.status !== 'reading') text += `\nRead from the specification: ${j.offer.title || ''} (${j.offer.items.join(', ')}).`;
     const timing = timeText(j);
     if (timing && j.status !== 'done' && j.status !== 'failed') text += ` · ${timing}`;
     if (j.working) text += `\nNow: ${j.working}`;
@@ -585,7 +614,11 @@
       text += `\nSLD drawings: ${d.pages} page(s) read; boards found: ${d.boards.length ? d.boards.join(', ') : 'none'}.`;
       if (d.notes.length) text += `\n${d.notes.join('\n')}`;
     }
-    if (j.status === 'done' && j.sources) {
+    if (j.status === 'done' && offer && j.offer?.totals) {
+      const inr = (v) => '₹' + Math.round(v).toLocaleString('en-IN');
+      text += '\nTotals before GST: ' + Object.entries(j.offer.totals).map(([k, v]) => `${k} ${inr(v)}`).join(', ') + '.' +
+        '\nThe pack (.zip) holds the priced offer workbook (Summary, priced BOQ, BOM, Compliance, Terms, Cost build-up) and an SLD and GA PDF for each. Check the Low confidence and CHECK lines in the Cost build-up sheet, and the assumptions in Terms, before sending.';
+    } else if (j.status === 'done' && j.sources) {
       const s = j.sources;
       text += ` · ${j.total} lines; parts from your past rates: ${s.db || 0}, online: ${s.web || 0}, AI estimates: ${s.estimate || 0}. ` +
         'Lines marked CHECK or NOT FULLY PRICED in the Backup sheet need a look before sending.';
@@ -599,11 +632,12 @@
     $('jobText').textContent = text;
     $('jobError').textContent = j.status === 'failed' ? j.error : '';
     show('downloadBtn', j.status === 'done');
+    $('downloadBtn').textContent = offer ? 'Download offer pack (.zip)' : 'Download priced workbook';
     show('cancelBtn', !FINISHED.includes(j.status));
     $('cancelBtn').onclick = () => cancel(j.jobId, $('cancelBtn'));
     $('downloadBtn').onclick = () => download(j.jobId, $('downloadBtn'));
     // Learning from corrections: the priced workbook back with the user's own rates.
-    show('learnBtn', j.status === 'done');
+    show('learnBtn', j.status === 'done' && !offer); // corrections are read from priced BOQ workbooks
     if (learnFor !== j.jobId) $('learnText').textContent = '';
     learnFor = j.jobId;
     $('learnBtn').onclick = () => $('learnFile').click();
@@ -741,11 +775,11 @@
     button.disabled = true;
     button.textContent = 'Preparing…';
     try {
-      const { fileName, data } = await call('agentResult', { jobId });
+      const { fileName, data, type } = await call('agentResult', { jobId });
       const bin = atob(data);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const url = URL.createObjectURL(new Blob([bytes], { type: type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
