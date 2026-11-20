@@ -22,6 +22,9 @@
   label { display: block; font-weight: 600; margin: 12px 0 4px; }
   input[type=number], input[type=file], select { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
   .hint { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .kind { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 6px 0 2px; }
+  .kind label { display: inline-flex; gap: 6px; align-items: center; margin: 0; font-weight: 400; }
+  #specText { min-height: 180px; resize: vertical; font: 14px/1.5 inherit; }
   .board { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 12px; }
   .board.off { opacity: .55; }
   .board-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -67,17 +70,29 @@
   </section>
 
   <section class="card hidden" id="startCard">
-    <h2>Price a BOQ</h2>
+    <h2>Price a BOQ or a specification</h2>
     <p class="lead">Your workbook comes back unchanged, with margin, total and Grand Total columns, a Summary, and a Backup sheet that shows how every rate was built up. Choose several BOQ files to price them together: each comes back as its own workbook.</p>
     <p class="lead">Panel or substation enquiry without a BOQ? Choose the specification or scope (Word or PDF): you get a full offer pack, a priced offer workbook with BOM (Siemens, Schneider, ABB), compliance matrix and terms, plus an SLD and a GA drawing in PDF for each option or panel.</p>
     <form id="startForm">
-      <label for="file">Client BOQ files (.xlsx), or a panel specification / scope (.docx, .pdf)</label>
-      <input id="file" type="file" accept=".xlsx,.docx,.pdf" multiple required>
-      <label for="company">Your company name, for the offer and drawings (optional)</label>
-      <input id="company" type="text" maxlength="60" autocomplete="organization">
-      <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
-      <input id="drawings" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
-      <div class="hint">Panels and DBs drawn in these SLDs are priced from their feeders. To use them with “Compute with AI Agent”, add them here before computing.</div>
+      <label>What are you pricing?</label>
+      <div class="kind" role="radiogroup">
+        <label><input type="radio" name="kind" value="boq" checked> BOQ (Excel)</label>
+        <label><input type="radio" name="kind" value="spec"> Specification (offer pack)</label>
+      </div>
+      <label for="file" id="fileLabel">Client BOQ files (.xlsx, one or more)</label>
+      <input id="file" type="file" accept=".xlsx" multiple>
+      <div id="specOnly" class="hidden">
+        <label for="specText">Or paste the specification (any length)</label>
+        <textarea id="specText" placeholder="Paste the specification or scope here: clauses, ratings, quantities, options, makes..."></textarea>
+        <div class="hint" id="specCount">No word limit: a long specification is read in parts.</div>
+        <label for="company">Your company name, for the offer and drawings (optional)</label>
+        <input id="company" type="text" maxlength="60" autocomplete="organization">
+      </div>
+      <div id="boqOnly">
+        <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
+        <input id="drawings" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple>
+        <div class="hint">Panels and DBs drawn in these SLDs are priced from their feeders. To use them with “Compute with AI Agent”, add them here before computing.</div>
+      </div>
       <label for="panelSpec">Panel specification of this client</label>
       <select id="panelSpec">
         <option value="budget">Budget: plain makes, no special metering</option>
@@ -498,7 +513,7 @@
   async function start(files, project) {
     const at = Date.now(); // one start time for the files sent together (Drive file names)
     $('startError').textContent = '';
-    const bad = files.map((f) => !/\.(xlsx|docx|pdf)$/i.test(f.name)
+    const bad = files.map((f) => !/\.(xlsx|docx|pdf|txt)$/i.test(f.name)
       ? `${f.name}: choose an Excel .xlsx BOQ (save .xls as .xlsx first), or a specification in Word .docx or PDF.`
       : /\.pdf$/i.test(f.name) && !f.file ? `${f.name}: choose the PDF in the form above.`
       : f.size > 8 * 1024 * 1024 ? `${f.name}: the file must be under 8 MB.` : '').filter(Boolean);
@@ -506,6 +521,7 @@
     const margin = Math.min(100, Math.max(0, $('margin').value === '' ? 20 : Number($('margin').value) || 0)) / 100;
     const failed = [];
     let last = null;
+    const label = $('startBtn').textContent; // "Start pricing" or "Prepare the offer pack"
     $('startBtn').disabled = true;
     $('startBtn').textContent = 'Uploading…';
     try {
@@ -514,10 +530,10 @@
         $('startBtn').textContent = files.length > 1 ? `Uploading BOQ ${i + 1} of ${files.length}…` : 'Uploading the BOQ…';
         try {
           // A specification: an offer pack job. PDFs are read here (their text only).
-          if (/\.(docx|pdf)$/i.test(f.name)) {
+          if (/\.(docx|pdf|txt)$/i.test(f.name)) {
             const company = $('company').value.trim();
             try { localStorage.setItem('agentCompany', company); } catch (_) {}
-            const sent = /\.pdf$/i.test(f.name) ? { text: await pdfText(f.file) } : { data: await f.data() };
+            const sent = /\.txt$/i.test(f.name) ? { text: f.text } : /\.pdf$/i.test(f.name) ? { text: await pdfText(f.file) } : { data: await f.data() };
             ({ jobId: last } = await call('agentStart', { fileName: f.name, ...sent, margin, panelSpec: $('panelSpec').value, company }));
             continue;
           }
@@ -537,7 +553,7 @@
       failed.push(message(e));
     } finally {
       $('startBtn').disabled = false;
-      $('startBtn').textContent = 'Start pricing';
+      $('startBtn').textContent = label;
     }
     $('startError').textContent = failed.join('\n');
     if (last) {
@@ -549,10 +565,44 @@
 
   $('startForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    const spec = kind() === 'spec';
     const files = [...$('file').files].map((file) => ({ name: file.name, size: file.size, file, data: async () => toBase64(await file.arrayBuffer()) }));
-    if (!files.length) return;
-    if (await start(files)) $('file').value = '';
+    const pasted = spec ? $('specText').value.trim() : '';
+    if (pasted) files.push({ name: 'Pasted specification.txt', size: new Blob([pasted]).size, text: pasted });
+    if (!files.length) {
+      $('startError').textContent = spec ? 'Choose the specification (Word or PDF), or paste its text.' : 'Choose the client BOQ (.xlsx).';
+      return;
+    }
+    const wrong = files.filter((f) => (spec ? !/\.(docx|pdf|txt)$/i.test(f.name) : !/\.xlsx$/i.test(f.name)));
+    if (wrong.length) {
+      $('startError').textContent = spec ? `${wrong[0].name}: a specification is a Word (.docx) or PDF file. For an Excel BOQ choose "BOQ (Excel)".` : `${wrong[0].name}: choose an Excel .xlsx BOQ (save .xls as .xlsx first). For a specification choose "Specification".`;
+      return;
+    }
+    if (await start(files)) {
+      $('file').value = '';
+      $('specText').value = '';
+      countSpec();
+    }
   });
+
+  // BOQ or Specification: the file types, the paste box and the company name follow the choice.
+  const kind = () => (document.querySelector('input[name="kind"]:checked') || {}).value || 'boq';
+  function showKind() {
+    const spec = kind() === 'spec';
+    $('fileLabel').textContent = spec ? 'Specification or scope (Word .docx or PDF), one or more' : 'Client BOQ files (.xlsx, one or more)';
+    $('file').accept = spec ? '.docx,.pdf' : '.xlsx';
+    show('specOnly', spec);
+    show('boqOnly', !spec);
+    $('startBtn').textContent = spec ? 'Prepare the offer pack' : 'Start pricing';
+    $('startError').textContent = '';
+  }
+  function countSpec() {
+    const t = $('specText').value.trim();
+    const words = t ? t.split(/\s+/).length : 0;
+    $('specCount').textContent = words ? `${words.toLocaleString('en-IN')} words, ${t.length.toLocaleString('en-IN')} characters. No word limit: a long specification is read in parts.` : 'No word limit: a long specification is read in parts.';
+  }
+  document.querySelectorAll('input[name="kind"]').forEach((r) => r.addEventListener('change', showKind));
+  $('specText').addEventListener('input', countSpec);
 
   // "Compute with AI Agent" in the app, sent by agent-button.js: the client's BOQ files (one job
   // each), or the one BOQ workbook the app built. Only from this site's own pages; waits for the
