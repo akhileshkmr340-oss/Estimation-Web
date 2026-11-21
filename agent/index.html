@@ -95,7 +95,7 @@
         <input id="tenderTitle" type="text" maxlength="120" placeholder="e.g. BIAL tunnel electrical">
         <label for="tenderCompany">Your company name, for the enquiries and offers (optional)</label>
         <input id="tenderCompany" type="text" maxlength="60" autocomplete="organization">
-        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back.</div>
+        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back. SLD drawings (PDFs with "SLD" or "single line" in the file name) are read for their boards and feeders: you check the boards here before the costing goes on.</div>
       </div>
       <div id="boqOnly">
         <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
@@ -514,6 +514,25 @@
     return pages;
   }
 
+  // An SLD PDF's text with positions, page by page: [[x_mm, y_mm, text], ...] as the page is
+  // viewed (its rotation applied), for reading its boards and feeders on the server.
+  async function pdfLayout(file) {
+    const lib = await loadPdfjs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = [];
+    for (let p = 1; p <= Math.min(doc.numPages, 40); p++) {
+      const page = await doc.getPage(p);
+      const viewport = page.getViewport({ scale: 1 });
+      const content = await page.getTextContent();
+      const mm = 25.4 / 72;
+      pages.push(content.items.filter((it) => (it.str || '').trim()).map((it) => {
+        const [x, y] = viewport.convertToViewportPoint(it.transform[4], it.transform[5]);
+        return [Math.round(x * mm * 10) / 10, Math.round(y * mm * 10) / 10, it.str.trim()];
+      }));
+    }
+    return pages;
+  }
+
   // A tender: every file goes to the agent (PDFs as their pages' text, read here), then one job
   // runs the user's 7 steps on them in the background.
   async function startTender(files) {
@@ -531,8 +550,11 @@
     try {
       for (const [n, f] of files.entries()) {
         $('startBtn').textContent = `Sending file ${n + 1} of ${files.length}...`;
-        if (/\.pdf$/i.test(f.name)) await call('agentTenderFile', { batch, n, name: f.name, pages: await pdfPages(f) });
-        else await call('agentTenderFile', { batch, n, name: f.name, data: toBase64(await f.arrayBuffer()) });
+        if (/\.pdf$/i.test(f.name)) {
+          await call('agentTenderFile', { batch, n, name: f.name, pages: await pdfPages(f) });
+          // An SLD drawing also sends its text with positions, for its boards' feeders.
+          if (/\bsld\b|single[\s_-]*line/i.test(f.name)) await call('agentTenderFile', { batch, n, name: f.name, layout: await pdfLayout(f) });
+        } else await call('agentTenderFile', { batch, n, name: f.name, data: toBase64(await f.arrayBuffer()) });
       }
       const company = $('tenderCompany').value.trim();
       try { localStorage.setItem('agentCompany', company); } catch (_) {}
