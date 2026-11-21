@@ -72,13 +72,13 @@
   <section class="card hidden" id="startCard">
     <h2>Price a BOQ or a specification</h2>
     <p class="lead">Your workbook comes back unchanged, with margin, total and Grand Total columns, a Summary, and a Backup sheet that shows how every rate was built up. Choose several BOQ files to price them together: each comes back as its own workbook.</p>
-    <p class="lead">Panel or substation enquiry without a BOQ? Choose the specification or scope (Word or PDF): you get a full offer pack, a priced offer workbook with BOM (Siemens, Schneider, ABB), compliance matrix and terms, plus an SLD and a GA drawing in PDF for each option or panel.</p>
+    <p class="lead">A specification or scope without a BOQ (Word or PDF, or pasted)? Choose "Specification": it goes through the same 7 steps as a tender, so the BOQ is made from the specification and checked before it is priced.</p>
     <p class="lead">A whole tender? Choose "Tender" and add all its files (specifications, BOQ, SLDs, makes list): the agent runs your 7 steps in the background and returns one pack with the tender details, the BOQ check, supplier enquiry drafts, technical documents, the costing with its check, and separate technical and commercial offers.</p>
     <form id="startForm">
       <label>What are you pricing?</label>
       <div class="kind" role="radiogroup">
         <label><input type="radio" name="kind" value="boq" checked> BOQ (Excel)</label>
-        <label><input type="radio" name="kind" value="spec"> Specification (offer pack)</label>
+        <label><input type="radio" name="kind" value="spec"> Specification (all 7 steps)</label>
         <label><input type="radio" name="kind" value="tender"> Tender (all 7 steps)</label>
       </div>
       <label for="file" id="fileLabel">Client BOQ files (.xlsx, one or more)</label>
@@ -91,11 +91,12 @@
         <input id="company" type="text" maxlength="60" autocomplete="organization">
       </div>
       <div id="tenderOnly" class="hidden">
+        <div id="fromApp" class="hint hidden"></div>
         <label for="tenderTitle">Tender name (used for the files)</label>
         <input id="tenderTitle" type="text" maxlength="120" placeholder="e.g. BIAL tunnel electrical">
         <label for="tenderCompany">Your company name, for the enquiries and offers (optional)</label>
         <input id="tenderCompany" type="text" maxlength="60" autocomplete="organization">
-        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back. SLD drawings (PDFs with "SLD" or "single line" in the file name) are read for their boards and feeders: you check the boards here before the costing goes on.</div>
+        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back. SLD drawings (PDFs with "SLD" or "single line" in the file name, such as "SLD2.pdf") are read for their boards and feeders: you check the boards here before the costing goes on.</div>
       </div>
       <div id="boqOnly">
         <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
@@ -535,7 +536,8 @@
 
   // A tender: every file goes to the agent (PDFs as their pages' text, read here), then one job
   // runs the user's 7 steps on them in the background.
-  async function startTender(files) {
+  const SLD_NAME = /(^|[^a-z])sld(?![a-z])|single[\s_-]*line/i;
+  async function startTender(files, opts = {}) {
     $('startError').textContent = '';
     const bad = files.map((f) => !/\.(pdf|xlsx|xls|docx)$/i.test(f.name)
       ? `${f.name}: tender files are PDF, Excel (.xlsx, .xls) or Word (.docx).`
@@ -550,15 +552,17 @@
     try {
       for (const [n, f] of files.entries()) {
         $('startBtn').textContent = `Sending file ${n + 1} of ${files.length}...`;
-        if (/\.pdf$/i.test(f.name)) {
+        if (f.pages) await call('agentTenderFile', { batch, n, name: f.name, pages: f.pages }); // pasted text
+        else if (/\.pdf$/i.test(f.name)) {
           await call('agentTenderFile', { batch, n, name: f.name, pages: await pdfPages(f) });
           // An SLD drawing also sends its text with positions, for its boards' feeders.
-          if (/\bsld\b|single[\s_-]*line/i.test(f.name)) await call('agentTenderFile', { batch, n, name: f.name, layout: await pdfLayout(f) });
+          if (SLD_NAME.test(f.name)) await call('agentTenderFile', { batch, n, name: f.name, layout: await pdfLayout(f) });
         } else await call('agentTenderFile', { batch, n, name: f.name, data: toBase64(await f.arrayBuffer()) });
       }
-      const company = $('tenderCompany').value.trim();
+      const company = opts.company !== undefined ? opts.company : $('tenderCompany').value.trim();
       try { localStorage.setItem('agentCompany', company); } catch (_) {}
-      const { jobId } = await call('agentTenderStart', { batch, title: $('tenderTitle').value.trim() || files[0].name.replace(/\.[a-z]+$/i, ''), margin, company });
+      const title = opts.title !== undefined ? opts.title : $('tenderTitle').value.trim();
+      const { jobId } = await call('agentTenderStart', { batch, title: title || files[0].name.replace(/\.[a-z]+$/i, ''), margin, company });
       watch(jobId);
       loadHistory(false);
       return true;
@@ -644,12 +648,34 @@
   $('startForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     if (kind() === 'tender') {
-      const files = [...$('file').files];
+      const chosen = [...$('file').files];
+      const same = (a, b) => a.name === b.name && a.size === b.size;
+      const files = [...fromApp.filter((a) => !chosen.some((b) => same(a, b))), ...chosen];
       if (!files.length) { $('startError').textContent = 'Choose the tender files (PDF, Excel or Word).'; return; }
-      if (await startTender(files)) $('file').value = '';
+      if (await startTender(files)) { $('file').value = ''; setFromApp([], []); }
       return;
     }
     const spec = kind() === 'spec';
+    if (spec) {
+      // A specification follows the same 7 steps as a tender: the BOQ is made from it (step 2).
+      const files = [...$('file').files];
+      const pasted = $('specText').value.trim();
+      if (pasted) {
+        const pages = [];
+        for (let i = 0; i < pasted.length; i += 50000) pages.push(pasted.slice(i, i + 50000));
+        files.push({ name: 'Pasted specification.pdf', size: pasted.length, pages });
+      }
+      if (!files.length) { $('startError').textContent = 'Choose the specification (Word or PDF), or paste its text.'; return; }
+      const wrong = files.filter((f) => !f.pages && !/\.(docx|pdf)$/i.test(f.name));
+      if (wrong.length) { $('startError').textContent = `${wrong[0].name}: a specification is a Word (.docx) or PDF file. For an Excel BOQ choose "BOQ (Excel)".`; return; }
+      const first = files[0].pages ? 'Specification' : files[0].name.replace(/\.[a-z]+$/i, '');
+      if (await startTender(files, { company: $('company').value.trim(), title: first })) {
+        $('file').value = '';
+        $('specText').value = '';
+        countSpec();
+      }
+      return;
+    }
     const files = [...$('file').files].map((file) => ({ name: file.name, size: file.size, file, data: async () => toBase64(await file.arrayBuffer()) }));
     const pasted = spec ? $('specText').value.trim() : '';
     if (pasted) files.push({ name: 'Pasted specification.txt', size: new Blob([pasted]).size, text: pasted });
@@ -680,7 +706,7 @@
     show('tenderOnly', tender);
     show('boqOnly', !spec && !tender);
     if (tender && !$('tenderCompany').value) { try { $('tenderCompany').value = localStorage.getItem('agentCompany') || ''; } catch (_) {} }
-    $('startBtn').textContent = tender ? 'Start the tender (7 steps)' : spec ? 'Prepare the offer pack' : 'Start pricing';
+    $('startBtn').textContent = tender ? 'Start the tender (7 steps)' : spec ? 'Start the 7 steps' : 'Start pricing';
     $('startError').textContent = '';
   }
   function countSpec() {
@@ -703,6 +729,40 @@
     if (!files.length) return;
     await signedIn;
     start(files, typeof ev.data.project === 'string' ? ev.data.project : undefined);
+  });
+
+  // Tender documents chosen in the app (agent-button.js): the app read them as BOQ lines, so they
+  // come here for the 7 steps instead. They wait in the Tender form with the files the person
+  // adds (the tender's BOQ, SLDs, makes list), and the job starts when they press Start.
+  let fromApp = [];
+  function setFromApp(files, missing) {
+    fromApp = files;
+    const box = $('fromApp');
+    const names = files.map((f) => f.name);
+    box.textContent = '';
+    if (!names.length && !missing.length) { show('fromApp', false); return; }
+    box.append(`From the app: ${names.length ? names.join(', ') : 'no files'}. These are tender documents, so they go through your 7 steps here, not the app's rate list. `);
+    if (missing.length) box.append(`Choose again (this page no longer holds them): ${missing.join(', ')}. `);
+    box.append('Add the tender\'s other files below (BOQ, SLDs, makes list), then press Start. ');
+    const clear = document.createElement('a');
+    clear.href = '#';
+    clear.textContent = 'Clear';
+    clear.addEventListener('click', (e) => { e.preventDefault(); setFromApp([], []); });
+    box.append(clear);
+    show('fromApp', true);
+  }
+  window.addEventListener('message', async (ev) => {
+    if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'estimation-agent-tender') return;
+    const files = (Array.isArray(ev.data.files) ? ev.data.files : [])
+      .filter((f) => f && typeof f.fileName === 'string' && f.bytes instanceof Uint8Array)
+      .map((f) => new File([f.bytes], f.fileName));
+    const missing = (Array.isArray(ev.data.missing) ? ev.data.missing : []).filter((n) => typeof n === 'string');
+    await signedIn;
+    const radio = document.querySelector('input[name="kind"][value="tender"]');
+    if (radio) radio.checked = true;
+    showKind();
+    if (typeof ev.data.title === 'string' && ev.data.title && !$('tenderTitle').value) $('tenderTitle').value = ev.data.title.slice(0, 120);
+    setFromApp(files, missing);
   });
 
   // ---- Watch a job ----

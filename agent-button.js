@@ -89,6 +89,10 @@
     async price(fileName, bytes, forProject) {
       const proj = forProject ? String(forProject) : project;
       const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      // A BOQ the app read from tender documents goes to the 7-step tender process instead.
+      let tender = null;
+      try { tender = await tenderOf(u8, String(fileName || '')); } catch (_) { tender = null; }
+      if (tender) { toTender(tender, proj); return; }
       let files = null;
       try { files = window.estimationBoqFiles ? await window.estimationBoqFiles.agentFiles(u8) : null; } catch (_) { files = null; }
       pending = files && files.length
@@ -98,6 +102,216 @@
       send();
     },
   };
+  // ---- Tender documents chosen in the app go through the 7-step tender process ----
+  // The app reads every file it is given into one BOQ and prices it from the rate list. That is
+  // right for client BOQs and drawings, but a tender's specifications are not a BOQ: read that
+  // way they give lines such as "Design maximum wind velocity" with no rate, and the offer skips
+  // the tender process (tender details, BOQ check, supplier enquiries, technical documents,
+  // costing and its check, technical and commercial offers). So when the app prices or saves
+  // a BOQ or offer made from specifications, the original files go to the agent's tender job.
+  const est = window.estimation;
+  const chosen = new Map(); // file name -> bytes of every file chosen or dropped in the app
+  const TENDER_FILE = /\.(pdf|docx|xlsx|xls)$/i;
+  // Drawings (an SLD, a layout) belong to a tender but are not one by themselves; a drawing PDF
+  // alone is the app's own quantity take-off.
+  const DRAWING_NAME = /(^|[^a-z])(sld|ga|gad|drg|dwg|dxf|layout|schematic|elevation|plan)(?![a-z])|single[\s_-]*line/i;
+  const SPEC_NAME = /spec|tender|scope|rfp|rfq|(^|[^a-z])nit(?![a-z])|bid|volume|(^|[^a-z])vol(?![a-z])|conditions|enquiry|inquiry|technical|requirement|datasheet|data sheet/i;
+  const BOQ_NAME = /boq|bill[\s_-]*of[\s_-]*quantit|price[\s_-]*schedule|schedule[\s_-]*of[\s_-]*(rates|prices)/i;
+  const SPEC_WORDS = /scope of work|technical specification|the contractor shall|the bidder|bidders|tenderer|general conditions|instructions to|shall be provided|shall conform|shall comply|shall be suitable/gi;
+  function remember(list) {
+    let total = 0;
+    for (const f of list || []) if (f && f.name && f.bytes && TENDER_FILE.test(f.name)) chosen.set(String(f.name), f.bytes);
+    // Keep at most about 300 MB, dropping the files chosen first.
+    for (const [n, b] of [...chosen].reverse()) { total += b.length; if (total > 300 * 1024 * 1024) chosen.delete(n); }
+    return list;
+  }
+  if (est) {
+    const pickFiles = est.pickFiles;
+    const takeDropped = est.takeDropped;
+    est.pickFiles = (...a) => Promise.resolve(pickFiles.apply(est, a)).then(remember);
+    est.takeDropped = (...a) => remember(takeDropped.apply(est, a));
+  }
+
+  let pdfjs = null;
+  function loadPdf() {
+    pdfjs ||= import(new URL('pdfjs/pdf.min.js', document.baseURI).href).then((lib) => {
+      lib.GlobalWorkerOptions.workerSrc = new URL('pdfjs/pdf.worker.min.js', document.baseURI).href;
+      return lib;
+    }).catch((e) => { pdfjs = null; throw e; });
+    return pdfjs;
+  }
+  // True for a specification, scope or other written tender document; false for a BOQ or drawing.
+  const kindCache = new Map();
+  async function isSpec(name, bytes) {
+    if (!/\.(pdf|docx?)$/i.test(name) || DRAWING_NAME.test(name)) return false;
+    if (/\.docx?$/i.test(name)) return true; // a Word file in the app is a written specification or scope
+    const byName = SPEC_NAME.test(name) && !BOQ_NAME.test(name);
+    if (!bytes) return byName;
+    if (kindCache.has(name)) return kindCache.get(name);
+    let spec = byName;
+    try {
+      const lib = await loadPdf();
+      const doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+      let text = '';
+      for (let p = 1; p <= Math.min(doc.numPages, 15); p++) {
+        const content = await (await doc.getPage(p)).getTextContent();
+        text += content.items.map((it) => it.str || '').join(' ') + '\n';
+      }
+      // At least two different phrases of a specification (a BOQ may say "as per specification").
+      const said = new Set((text.match(SPEC_WORDS) || []).map((w) => w.toLowerCase()));
+      spec = spec || said.size >= 2;
+      await doc.destroy();
+    } catch (_) { /* unreadable here: the name decides */ }
+    kindCache.set(name, spec);
+    return spec;
+  }
+
+  // The file names in the "Sources" sheet of a workbook the app wrote, or null.
+  async function sourcesOf(xlsx) {
+    const read = window.estimationBoqFiles && window.estimationBoqFiles.readWorkbook;
+    if (!read) return null;
+    const wb = await read(xlsx);
+    if (!wb.names.includes('Sources')) return null;
+    const cells = await wb.sheet('Sources');
+    const text = (c) => (c && c.v != null ? String(c.v).trim() : '');
+    for (let r = 1; r <= 12; r++) {
+      let fileCol = null;
+      for (const k of Object.keys(cells)) {
+        const m = /^([A-Z]+)(\d+)$/.exec(k);
+        if (m && Number(m[2]) === r && text(cells[k]).toLowerCase() === 'file') fileCol = m[1];
+      }
+      if (!fileCol) continue;
+      const names = [];
+      for (let row = r + 1; row <= r + 500; row++) {
+        const n = text(cells[`${fileCol}${row}`]);
+        if (!n) break;
+        names.push(n);
+      }
+      return names;
+    }
+    return null;
+  }
+
+  // The files of a zip (an offer package): { name: () => Promise<Uint8Array> }.
+  function zipEntries(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    let end = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { end = i; break; }
+    if (end < 0) return {};
+    const out = {};
+    let p = dv.getUint32(end + 16, true);
+    for (let n = dv.getUint16(end + 10, true); n > 0 && dv.getUint32(p, true) === 0x02014b50; n--) {
+      const method = dv.getUint16(p + 10, true);
+      const size = dv.getUint32(p + 20, true);
+      const nameLen = dv.getUint16(p + 28, true);
+      const local = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen));
+      out[name] = async () => {
+        const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+        const raw = u8.subarray(start, start + size);
+        if (method !== 8) return raw;
+        const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      };
+      p += 46 + nameLen + dv.getUint16(p + 30, true) + dv.getUint16(p + 32, true);
+    }
+    return out;
+  }
+
+  // For a file the app made (a BOQ or costing workbook, an offer package, an offer in Word):
+  // { names, specs } when it was made from tender documents, else null. `names` are the
+  // tender's files to send (specifications, BOQs, drawings), `specs` the specifications.
+  async function tenderOf(u8, name) {
+    let sources = null;
+    if (/\.xlsx$/i.test(name)) sources = await sourcesOf(u8);
+    else if (/\.zip$/i.test(name)) {
+      const zip = zipEntries(u8);
+      for (const n of Object.keys(zip)) {
+        if (!/\.xlsx$/i.test(n)) continue;
+        sources = await sourcesOf(await zip[n]());
+        if (sources) break;
+      }
+    } else if (/\.docx$/i.test(name)) sources = [...chosen.keys()]; // an offer in Word: the files chosen in the app
+    if (!sources) return null;
+    const names = sources.filter((n) => TENDER_FILE.test(n));
+    const specs = [];
+    for (const n of names) if (await isSpec(n, chosen.get(n))) specs.push(n);
+    return specs.length ? { names, specs } : null;
+  }
+
+  // Opens the agent's Tender form with the tender's files; the person adds the rest and starts.
+  function toTender(t, proj) {
+    pending = {
+      type: 'estimation-agent-tender',
+      project: proj,
+      title: proj || t.specs[0].replace(/\.[a-z]+$/i, ''),
+      files: t.names.filter((n) => chosen.has(n)).map((n) => ({ fileName: n, bytes: chosen.get(n) })),
+      missing: t.names.filter((n) => !chosen.has(n)),
+    };
+    open();
+    send();
+  }
+
+  // A notice before the app saves a BOQ, costing or offer made from tender documents.
+  let note = null;
+  function ask(html, buttons) {
+    if (!note) {
+      const s = document.createElement('style');
+      s.textContent = `#ai-tender{position:fixed;left:18px;bottom:18px;z-index:2147483002;max-width:min(520px,calc(100vw - 36px));
+        background:#fff;color:#1b1f24;border:1px solid #d0d7de;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.18);
+        font:14px/1.45 system-ui,"Segoe UI",sans-serif;padding:14px 16px}#ai-tender b{font-weight:600}
+        #ai-tender ul{margin:6px 0 0;padding-left:18px;max-height:140px;overflow:auto}
+        #ai-tender .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+        #ai-tender button{font:600 13px system-ui,"Segoe UI",sans-serif;border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid #d0d7de;background:#f6f8fa;color:#1b1f24}
+        #ai-tender button.main{background:#1a56db;border-color:#1a56db;color:#fff}
+        @media (prefers-color-scheme:dark){#ai-tender{background:#1c2128;color:#e6edf3;border-color:#30363d}
+        #ai-tender button{background:#2d333b;color:#e6edf3;border-color:#444c56}}`;
+      document.head.appendChild(s);
+      note = document.createElement('div');
+      note.id = 'ai-tender';
+      note.setAttribute('role', 'alertdialog');
+      document.body.appendChild(note);
+    }
+    note.innerHTML = html;
+    note.style.display = 'block';
+    return new Promise((resolve) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      for (const b of buttons) {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.textContent = b.label;
+        if (b.main) el.className = 'main';
+        el.onclick = () => { note.style.display = 'none'; resolve(b.value); };
+        row.appendChild(el);
+      }
+      note.appendChild(row);
+    });
+  }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  const decided = new Set(); // the specifications already asked about on this page
+  if (est) {
+    const saveFile = est.saveFile;
+    est.saveFile = async function (name, bytes, mime) {
+      const args = arguments;
+      let t = null;
+      if (/\.(xlsx|zip|docx)$/i.test(String(name)) && bytes && bytes.length < 60 * 1024 * 1024) {
+        try { t = await tenderOf(new Uint8Array(bytes), String(name)); } catch (_) { t = null; }
+      }
+      const key = t ? t.specs.slice().sort().join('|') : '';
+      if (!t || decided.has(key)) return saveFile.apply(est, args);
+      const go = await ask(`<b>These are tender documents</b><br>The app read ${t.specs.length > 1 ? 'these specifications' : 'this specification'} as BOQ lines and priced ${t.specs.length > 1 ? 'them' : 'it'} only from your rate list:` +
+        `<ul>${t.specs.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` +
+        'A tender goes through your 7 steps in the AI agent: tender details, BOQ made and checked, supplier enquiry drafts, technical documents, costing with its check, and separate technical and commercial offers.',
+        [{ label: 'Run the 7 steps', value: 'tender', main: true }, { label: 'Save the app\'s file anyway', value: 'save' }, { label: 'Cancel', value: null }]);
+      if (go) decided.add(key); // asked once per page; Cancel asks again next time
+      if (go === 'save') return saveFile.apply(est, args);
+      if (go === 'tender') toTender(t, project);
+      return 'cancelled';
+    };
+  }
+
   // ---- Google Drive filing of AI Agent jobs (only while "Save project files to my Google
   // Drive" is on in Settings; the app's window.arzimateDrive does the saving) ----
   // The agent panel reports each job it starts; its BOQ is filed at once and the job is kept
