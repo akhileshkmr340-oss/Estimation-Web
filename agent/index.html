@@ -73,11 +73,13 @@
     <h2>Price a BOQ or a specification</h2>
     <p class="lead">Your workbook comes back unchanged, with margin, total and Grand Total columns, a Summary, and a Backup sheet that shows how every rate was built up. Choose several BOQ files to price them together: each comes back as its own workbook.</p>
     <p class="lead">Panel or substation enquiry without a BOQ? Choose the specification or scope (Word or PDF): you get a full offer pack, a priced offer workbook with BOM (Siemens, Schneider, ABB), compliance matrix and terms, plus an SLD and a GA drawing in PDF for each option or panel.</p>
+    <p class="lead">A whole tender? Choose "Tender" and add all its files (specifications, BOQ, SLDs, makes list): the agent runs your 7 steps in the background and returns one pack with the tender details, the BOQ check, supplier enquiry drafts, technical documents, the costing with its check, and separate technical and commercial offers.</p>
     <form id="startForm">
       <label>What are you pricing?</label>
       <div class="kind" role="radiogroup">
         <label><input type="radio" name="kind" value="boq" checked> BOQ (Excel)</label>
         <label><input type="radio" name="kind" value="spec"> Specification (offer pack)</label>
+        <label><input type="radio" name="kind" value="tender"> Tender (all 7 steps)</label>
       </div>
       <label for="file" id="fileLabel">Client BOQ files (.xlsx, one or more)</label>
       <input id="file" type="file" accept=".xlsx" multiple>
@@ -87,6 +89,13 @@
         <div class="hint" id="specCount">No word limit: a long specification is read in parts.</div>
         <label for="company">Your company name, for the offer and drawings (optional)</label>
         <input id="company" type="text" maxlength="60" autocomplete="organization">
+      </div>
+      <div id="tenderOnly" class="hidden">
+        <label for="tenderTitle">Tender name (used for the files)</label>
+        <input id="tenderTitle" type="text" maxlength="120" placeholder="e.g. BIAL tunnel electrical">
+        <label for="tenderCompany">Your company name, for the enquiries and offers (optional)</label>
+        <input id="tenderCompany" type="text" maxlength="60" autocomplete="organization">
+        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back.</div>
       </div>
       <div id="boqOnly">
         <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
@@ -493,6 +502,53 @@
     return pages.join('\n').slice(0, 400000);
   }
 
+  // A tender PDF's text, page by page (a scanned page has none: the server notes it).
+  async function pdfPages(file) {
+    const lib = await loadPdfjs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = [];
+    for (let p = 1; p <= Math.min(doc.numPages, 2000); p++) {
+      const content = await (await doc.getPage(p)).getTextContent();
+      pages.push(content.items.map((it) => (it.str || '') + (it.hasEOL ? '\n' : '')).join(''));
+    }
+    return pages;
+  }
+
+  // A tender: every file goes to the agent (PDFs as their pages' text, read here), then one job
+  // runs the user's 7 steps on them in the background.
+  async function startTender(files) {
+    $('startError').textContent = '';
+    const bad = files.map((f) => !/\.(pdf|xlsx|xls|docx)$/i.test(f.name)
+      ? `${f.name}: tender files are PDF, Excel (.xlsx, .xls) or Word (.docx).`
+      : !/\.pdf$/i.test(f.name) && f.size > 8 * 1024 * 1024 ? `${f.name}: the file must be under 8 MB.` : '').filter(Boolean);
+    if (files.length > 60) bad.push('Up to 60 files per tender.');
+    if (bad.length) { $('startError').textContent = bad.join('\n'); return false; }
+    const margin = Math.min(100, Math.max(0, $('margin').value === '' ? 20 : Number($('margin').value) || 0)) / 100;
+    const ids = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const batch = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => ids[b % ids.length]).join('');
+    const label = $('startBtn').textContent;
+    $('startBtn').disabled = true;
+    try {
+      for (const [n, f] of files.entries()) {
+        $('startBtn').textContent = `Sending file ${n + 1} of ${files.length}...`;
+        if (/\.pdf$/i.test(f.name)) await call('agentTenderFile', { batch, n, name: f.name, pages: await pdfPages(f) });
+        else await call('agentTenderFile', { batch, n, name: f.name, data: toBase64(await f.arrayBuffer()) });
+      }
+      const company = $('tenderCompany').value.trim();
+      try { localStorage.setItem('agentCompany', company); } catch (_) {}
+      const { jobId } = await call('agentTenderStart', { batch, title: $('tenderTitle').value.trim() || files[0].name.replace(/\.[a-z]+$/i, ''), margin, company });
+      watch(jobId);
+      loadHistory(false);
+      return true;
+    } catch (e) {
+      $('startError').textContent = message(e);
+      return false;
+    } finally {
+      $('startBtn').disabled = false;
+      $('startBtn').textContent = label;
+    }
+  }
+
   // Sends the chosen drawings; returns their batch id, or null when none were chosen.
   async function sendDrawings(files, progress) {
     if (!files.length) return null;
@@ -565,6 +621,12 @@
 
   $('startForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    if (kind() === 'tender') {
+      const files = [...$('file').files];
+      if (!files.length) { $('startError').textContent = 'Choose the tender files (PDF, Excel or Word).'; return; }
+      if (await startTender(files)) $('file').value = '';
+      return;
+    }
     const spec = kind() === 'spec';
     const files = [...$('file').files].map((file) => ({ name: file.name, size: file.size, file, data: async () => toBase64(await file.arrayBuffer()) }));
     const pasted = spec ? $('specText').value.trim() : '';
@@ -589,11 +651,14 @@
   const kind = () => (document.querySelector('input[name="kind"]:checked') || {}).value || 'boq';
   function showKind() {
     const spec = kind() === 'spec';
-    $('fileLabel').textContent = spec ? 'Specification or scope (Word .docx or PDF), one or more' : 'Client BOQ files (.xlsx, one or more)';
-    $('file').accept = spec ? '.docx,.pdf' : '.xlsx';
+    const tender = kind() === 'tender';
+    $('fileLabel').textContent = tender ? 'All the tender files (PDF, Excel, Word), one or more' : spec ? 'Specification or scope (Word .docx or PDF), one or more' : 'Client BOQ files (.xlsx, one or more)';
+    $('file').accept = tender ? '.pdf,.xlsx,.xls,.docx' : spec ? '.docx,.pdf' : '.xlsx';
     show('specOnly', spec);
-    show('boqOnly', !spec);
-    $('startBtn').textContent = spec ? 'Prepare the offer pack' : 'Start pricing';
+    show('tenderOnly', tender);
+    show('boqOnly', !spec && !tender);
+    if (tender && !$('tenderCompany').value) { try { $('tenderCompany').value = localStorage.getItem('agentCompany') || ''; } catch (_) {} }
+    $('startBtn').textContent = tender ? 'Start the tender (7 steps)' : spec ? 'Prepare the offer pack' : 'Start pricing';
     $('startError').textContent = '';
   }
   function countSpec() {
@@ -653,7 +718,9 @@
     const pct = j.status === 'done' ? 100 : j.total ? Math.round((j.done / j.total) * 90) + 5 : j.status === 'reading' ? 3 : 1;
     $('jobBar').style.width = pct + '%';
     const offer = j.kind === 'offer';
+    const tender = j.kind === 'tender';
     let text = (offer && STATUS[j.status + 'Offer']) || STATUS[j.status] || j.status;
+    if (tender && j.tender && j.tender.stage && j.status !== 'failed') text += `\n${j.tender.stage}`;
     if (j.status === 'pricing' && j.total) text += ` · ${j.done} of ${j.total} ${offer ? 'items' : 'lines'}`;
     if (offer && j.offer && j.status !== 'reading') text += `\nRead from the specification: ${j.offer.title || ''} (${j.offer.items.join(', ')}).`;
     const timing = timeText(j);
@@ -668,6 +735,11 @@
       const inr = (v) => '₹' + Math.round(v).toLocaleString('en-IN');
       text += '\nTotals before GST: ' + Object.entries(j.offer.totals).map(([k, v]) => `${k} ${inr(v)}`).join(', ') + '.' +
         '\nThe pack (.zip) holds the priced offer workbook (Summary, priced BOQ, BOM, Compliance, Terms, Cost build-up) and an SLD and GA PDF for each. Check the Low confidence and CHECK lines in the Cost build-up sheet, and the assumptions in Terms, before sending.';
+    } else if (j.status === 'done' && tender) {
+      const c = j.tender && j.tender.cost;
+      const inr = (v) => 'Rs ' + Math.round(v || 0).toLocaleString('en-IN');
+      if (c) text += `\nTotal before GST ${inr(c.total)} (supply ${inr(c.supply)}, installation ${inr(c.labour)})${c.extras ? `; not included: ${inr(c.extrasTotal)} for items the specification needs and the BOQ leaves out` : ''}. Checks to look at: ${c.findings || 0}${c.outliers ? `, of which ${c.outliers} rate(s) far out of line` : ''}.`;
+      text += '\nThe tender pack (.zip) has a folder per step: tender details and BOQ check, supplier enquiries (drafts: check and send them yourself), technical documents, costing and its check, technical offer, commercial offer. Look at the Check sheet of the Costing workbook before sending anything.';
     } else if (j.status === 'done' && j.sources) {
       const s = j.sources;
       text += ` · ${j.total} lines; parts from your past rates: ${s.db || 0}, online: ${s.web || 0}, AI estimates: ${s.estimate || 0}. ` +
@@ -682,12 +754,12 @@
     $('jobText').textContent = text;
     $('jobError').textContent = j.status === 'failed' ? j.error : '';
     show('downloadBtn', j.status === 'done');
-    $('downloadBtn').textContent = offer ? 'Download offer pack (.zip)' : 'Download priced workbook';
+    $('downloadBtn').textContent = tender ? 'Download tender pack (.zip)' : offer ? 'Download offer pack (.zip)' : 'Download priced workbook';
     show('cancelBtn', !FINISHED.includes(j.status));
     $('cancelBtn').onclick = () => cancel(j.jobId, $('cancelBtn'));
     $('downloadBtn').onclick = () => download(j.jobId, $('downloadBtn'));
     // Learning from corrections: the priced workbook back with the user's own rates.
-    show('learnBtn', j.status === 'done' && !offer); // corrections are read from priced BOQ workbooks
+    show('learnBtn', j.status === 'done' && !offer && !tender); // corrections are read from priced BOQ workbooks
     if (learnFor !== j.jobId) $('learnText').textContent = '';
     learnFor = j.jobId;
     $('learnBtn').onclick = () => $('learnFile').click();
