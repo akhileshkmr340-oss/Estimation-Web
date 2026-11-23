@@ -128,8 +128,32 @@
   if (est) {
     const pickFiles = est.pickFiles;
     const takeDropped = est.takeDropped;
-    est.pickFiles = (...a) => Promise.resolve(pickFiles.apply(est, a)).then(remember);
+    est.pickFiles = (...a) => Promise.resolve(pickFiles.apply(est, a)).then(remember).then(atUpload);
     est.takeDropped = (...a) => remember(takeDropped.apply(est, a));
+  }
+
+  // Files chosen in the app: tender documents are offered the 7 steps at once, before the app
+  // reads them as BOQ lines (the user, 2026-11-23: "website must follow the defined process for
+  // tender working"). "Run the 7 steps" opens the agent's Tender form with every file chosen, and
+  // the app gets none; "Read them in the app anyway" leaves them to the app.
+  async function atUpload(list) {
+    const names = (list || []).map((f) => f && f.name).filter((n) => n && TENDER_FILE.test(n));
+    if (!names.length) return list;
+    const specs = [];
+    try { for (const n of names) if (await isSpec(n, chosen.get(n))) specs.push(n); } catch (_) { return list; }
+    const key = specs.slice().sort().join('|');
+    if (!specs.length || decided.has(key)) return list;
+    const go = await ask(`<b>These are tender documents</b><br>${specs.length > 1 ? 'These specifications go' : 'This specification goes'} through your 7 steps in the AI agent:` +
+      `<ul>${specs.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` +
+      'tender details, BOQ made and checked, supplier enquiry drafts, technical documents, costing with its check, and separate technical and commercial offers. The app itself would read them as BOQ lines and price them only from your rate list.',
+      [{ label: 'Run the 7 steps', value: 'tender', main: true }, { label: 'Read them in the app anyway', value: 'app' }]);
+    if (!go) return list;
+    decided.add(key);
+    if (go === 'tender') {
+      toTender({ names, specs }, project);
+      return [];
+    }
+    return list;
   }
 
   let pdfjs = null;
@@ -289,6 +313,127 @@
     });
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  // ---- "3. Tender" and "4. Specification" in the app: paste or attach, then the 7 steps ----
+  // The user (2026-11-23): "when specification is chosen then it also have option to past the
+  // specification with no word limit or with attachment option". The app (compiled Flutter, no
+  // source here) draws its own screens, so this panel sits beside them. Which of the four input
+  // types was chosen is read from the app's accessibility tree (its cards are buttons there,
+  // "3. Tender ...", "4. Specification ..."), switched on for project pages only.
+  let docType = '';
+  let panel2 = null;
+  let panelClosed = false;
+  const onProject = () => /^#\/p\//.test(location.hash);
+  function semanticsOn() {
+    if (document.querySelector('flt-semantics')) return;
+    const ph = document.querySelector('flt-semantics-placeholder');
+    if (ph) ph.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }
+  function typeAt(x, y) {
+    for (const n of document.querySelectorAll('flt-semantics[role="button"]')) {
+      const m = /^\s*\d\.\s*(BOQ|SLD|Tender|Specification)\b/.exec(n.textContent || '');
+      if (!m) continue;
+      const r = n.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return m[1].toLowerCase();
+    }
+    return null;
+  }
+  document.addEventListener('pointerup', (e) => {
+    if (!onProject()) return;
+    semanticsOn();
+    const t = typeAt(e.clientX, e.clientY);
+    if (t === null) return;
+    docType = t;
+    panelClosed = false;
+    showPanel();
+  }, true);
+  window.addEventListener('hashchange', () => {
+    if (onProject()) setTimeout(semanticsOn, 1500);
+    else docType = '';
+    showPanel();
+  });
+  if (onProject()) setTimeout(semanticsOn, 3000);
+
+  const words = (t) => (t.trim() ? t.trim().split(/\s+/).length : 0);
+  function showPanel() {
+    const want = onProject() && (docType === 'specification' || docType === 'tender');
+    if (!want) { if (panel2) panel2.style.display = 'none'; return; }
+    if (!panel2) {
+      const s = document.createElement('style');
+      s.textContent = `#ai-spec{position:fixed;right:18px;bottom:72px;z-index:2147483000;width:min(420px,calc(100vw - 36px));
+        background:#fff;color:#1b1f24;border:1px solid #d0d7de;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.18);
+        font:14px/1.45 system-ui,"Segoe UI",sans-serif;padding:12px 14px}
+        #ai-spec .head{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:6px}
+        #ai-spec .head button{background:none;border:0;font-size:20px;line-height:1;cursor:pointer;color:inherit;padding:0 4px}
+        #ai-spec textarea{width:100%;box-sizing:border-box;min-height:140px;max-height:45vh;resize:vertical;font:13px/1.45 inherit;border:1px solid #d0d7de;border-radius:8px;padding:8px}
+        #ai-spec .hint{color:#57606a;font-size:12px;margin:4px 0}
+        #ai-spec ul{margin:4px 0;padding-left:18px;max-height:90px;overflow:auto;font-size:12px}
+        #ai-spec .row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+        #ai-spec .row button{font:600 13px system-ui,"Segoe UI",sans-serif;border-radius:8px;padding:7px 12px;cursor:pointer;border:1px solid #d0d7de;background:#f6f8fa;color:#1b1f24}
+        #ai-spec .row button.main{background:#1a56db;border-color:#1a56db;color:#fff}
+        #ai-spec.min textarea,#ai-spec.min .body{display:none}
+        @media (prefers-color-scheme:dark){#ai-spec{background:#1c2128;color:#e6edf3;border-color:#30363d}
+        #ai-spec textarea{background:#0d1117;color:#e6edf3;border-color:#30363d}#ai-spec .hint{color:#8b949e}
+        #ai-spec .row button{background:#2d333b;color:#e6edf3;border-color:#444c56}}`;
+      document.head.appendChild(s);
+      panel2 = document.createElement('div');
+      panel2.id = 'ai-spec';
+      panel2.innerHTML = '<div class="head"><span class="title"></span><button type="button" title="Hide" aria-label="Hide">&times;</button></div>' +
+        '<div class="body"><textarea placeholder="Paste the specification or scope here: clauses, ratings, quantities, makes... (no word limit)"></textarea>' +
+        '<div class="hint count">No word limit: a long specification is read in parts.</div>' +
+        '<div class="row" style="justify-content:flex-start;margin-top:4px"><button type="button" class="attach">Attach files</button></div>' +
+        '<input type="file" multiple accept=".pdf,.docx,.xlsx,.xls" style="display:none"><ul class="files"></ul>' +
+        '<div class="hint">Tender work follows your 7 steps in the AI agent: tender details, BOQ made and checked, supplier enquiry drafts, technical documents, costing with its check, and separate technical and commercial offers.</div>' +
+        '<div class="row"><button type="button" class="app">Add to this project</button><button type="button" class="main run">Run the 7 steps</button></div>' +
+        '<div class="hint err" style="color:#cf222e"></div></div>';
+      document.body.appendChild(panel2);
+      const ta = panel2.querySelector('textarea');
+      const input = panel2.querySelector('input[type=file]');
+      const attached = [];
+      const list = () => { panel2.querySelector('.files').innerHTML = attached.map((f) => `<li>${esc(f.name)}</li>`).join(''); };
+      ta.addEventListener('input', () => {
+        const n = words(ta.value);
+        panel2.querySelector('.count').textContent = n ? `${n.toLocaleString('en-IN')} words, ${ta.value.trim().length.toLocaleString('en-IN')} characters. No word limit.` : 'No word limit: a long specification is read in parts.';
+      });
+      panel2.querySelector('.attach').onclick = () => input.click();
+      input.onchange = async () => {
+        for (const f of input.files) attached.push({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) });
+        input.value = '';
+        list();
+      };
+      panel2.querySelector('.head button').onclick = () => { panelClosed = true; panel2.style.display = 'none'; };
+      const err = (t) => { panel2.querySelector('.err').textContent = t; };
+      // The 7 steps: the agent's Tender form, with the text pasted and the files attached here.
+      panel2.querySelector('.run').onclick = () => {
+        const text = ta.value.trim();
+        if (!text && !attached.length) return err('Paste the specification or attach the files first.');
+        err('');
+        pending = {
+          type: 'estimation-agent-tender',
+          project,
+          title: project || (attached[0] ? attached[0].name.replace(/\.[a-z]+$/i, '') : 'Specification'),
+          files: attached.map((f) => ({ fileName: f.name, bytes: f.bytes })),
+          missing: [],
+          pasted: text,
+        };
+        open();
+        send();
+      };
+      // The app's own reading: the text as a .txt file and the attachments, given to the app as
+      // if dropped on it (estimation.js queues dropped files for the app).
+      panel2.querySelector('.app').onclick = () => {
+        const text = ta.value.trim();
+        if (!text && !attached.length) return err('Paste the specification or attach the files first.');
+        err('');
+        const dt = new DataTransfer();
+        if (text) dt.items.add(new File([text], 'Pasted specification.txt', { type: 'text/plain' }));
+        for (const f of attached) dt.items.add(new File([f.bytes], f.name));
+        window.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      };
+    }
+    panel2.querySelector('.title').textContent = docType === 'tender' ? 'Tender: paste the specification or attach the files' : 'Specification: paste it or attach the files';
+    panel2.style.display = panelClosed ? 'none' : 'block';
+  }
 
   const decided = new Set(); // the specifications already asked about on this page
   if (est) {
