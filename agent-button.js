@@ -72,6 +72,8 @@
     pending = null;
   }
   function toBase64(bytes) {
+    // A dropped file can come as an ArrayBuffer, a chosen one as a Uint8Array.
+    if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
     let s = '';
     for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
     return btoa(s);
@@ -120,7 +122,13 @@
   const SPEC_WORDS = /scope of work|technical specification|the contractor shall|the bidder|bidders|tenderer|general conditions|instructions to|shall be provided|shall conform|shall comply|shall be suitable/gi;
   function remember(list) {
     let total = 0;
-    for (const f of list || []) if (f && f.name && f.bytes && TENDER_FILE.test(f.name)) chosen.set(String(f.name), f.bytes);
+    for (const f of list || []) {
+      if (!(f && f.name && f.bytes && TENDER_FILE.test(f.name))) continue;
+      chosen.set(String(f.name), f.bytes);
+      // The app gets its own copy: it may hand its bytes on to a worker, which empties them
+      // everywhere they are shared, and the original is needed later (the client's own workbook).
+      if (f.bytes instanceof Uint8Array) f.bytes = f.bytes.slice();
+    }
     // Keep at most about 300 MB, dropping the files chosen first.
     for (const [n, b] of [...chosen].reverse()) { total += b.length; if (total > 300 * 1024 * 1024) chosen.delete(n); }
     return list;
@@ -680,6 +688,205 @@
     };
   }
 
+  // ---- A client's Excel BOQ comes back as the client's own workbook (2026-11-26) ----
+  // The user: "do not change the file once input is BOQ just add below column. Deploy the Agents
+  // for pricing search online for the price if price not available in database and save the
+  // current price in database", and "BOQ may contain multiple sheet". When the app saves its
+  // priced BOQ made from client Excel BOQs, each client workbook goes to the AI pricing agent
+  // instead, with the rates the app found in the user's price database and the project's factors:
+  // every sheet is read, database rates are kept, the other lines are priced (price book, online
+  // shops, AI), and the workbook comes back as sent with only the factor row and the ten pricing
+  // columns added ("<file> - priced.xlsx"). Prices found online are then saved in the user's price
+  // database (the Sheet's addPrices). Jobs are remembered, so a reload picks them up again.
+  const OWN = 'arzimate.ownBoqJobs';
+  const ownJobs = () => { try { return JSON.parse(localStorage.getItem(OWN) || '{}') || {}; } catch (_) { return {}; } };
+  const setOwnJobs = (m) => { try { localStorage.setItem(OWN, JSON.stringify(m)); } catch (_) {} };
+  async function callFn(name, data) {
+    const current = window.firebase && window.firebase.auth().currentUser;
+    if (!current) throw new Error('Log in first.');
+    const res = await fetch(FUNCTIONS + name, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await current.getIdToken()) },
+      body: JSON.stringify({ data }),
+    });
+    let d = null;
+    try { d = await res.json(); } catch (_) { d = null; }
+    if (d && d.error) throw new Error(d.error.message || 'The AI pricing agent refused the request.');
+    if (!d || !('result' in d)) throw new Error('The AI pricing agent gave an unexpected answer (' + res.status + ').');
+    return d.result;
+  }
+  let ownBox = null;
+  function tell(html) {
+    if (!ownBox) {
+      const s = document.createElement('style');
+      s.textContent = `#ai-own{position:fixed;left:18px;bottom:18px;z-index:2147483002;max-width:min(520px,calc(100vw - 36px));
+        background:#fff;color:#1b1f24;border:1px solid #d0d7de;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.18);
+        font:14px/1.45 system-ui,"Segoe UI",sans-serif;padding:14px 16px}#ai-own b{font-weight:600}
+        #ai-own ul{margin:6px 0 0;padding-left:18px;max-height:180px;overflow:auto}
+        #ai-own .row{display:flex;justify-content:flex-end;margin-top:8px}
+        #ai-own button{font:600 13px system-ui,"Segoe UI",sans-serif;border-radius:8px;padding:6px 12px;cursor:pointer;border:1px solid #d0d7de;background:#f6f8fa;color:#1b1f24}
+        @media (prefers-color-scheme:dark){#ai-own{background:#1c2128;color:#e6edf3;border-color:#30363d}
+        #ai-own button{background:#2d333b;color:#e6edf3;border-color:#444c56}}`;
+      document.head.appendChild(s);
+      ownBox = document.createElement('div');
+      ownBox.id = 'ai-own';
+      ownBox.setAttribute('role', 'status');
+      document.body.appendChild(ownBox);
+    }
+    ownBox.innerHTML = html + '<div class="row"><button type="button">Close</button></div>';
+    ownBox.querySelector('button').onclick = () => { ownBox.style.display = 'none'; };
+    ownBox.style.display = 'block';
+  }
+  const ownState = {}; // jobId -> line of the notice
+  function showOwn() {
+    const ids = Object.keys(ownState);
+    if (!ids.length) return;
+    tell(`<b>Your BOQ as sent, with the pricing columns</b><ul>${ids.map((id) => `<li>${ownState[id]}</li>`).join('')}</ul>`);
+  }
+  // The rates the app took from the user's price database (not its computed or web estimates),
+  // each with its heading where the line only names the work ("Supply & Installation").
+  async function appRatesOf(u8, merged) {
+    const bySection = new Map();
+    try {
+      const wb = await window.estimationBoqFiles.readWorkbook(u8);
+      const cells = await wb.sheet('BOQ');
+      const str = (c) => (c && c.v != null ? String(c.v).trim() : '');
+      let head = null;
+      for (let r = 1; r <= 12 && !head; r++) {
+        const cols = {};
+        for (const k of Object.keys(cells)) {
+          const m = /^([A-Z]+)(\d+)$/.exec(k);
+          if (m && Number(m[2]) === r) cols[str(cells[k]).toLowerCase()] = m[1];
+        }
+        if (cols['s. no.'] && cols['panel / section']) head = { row: r, no: cols['s. no.'], section: cols['panel / section'] };
+      }
+      if (head) {
+        for (let r = head.row + 1; r <= head.row + 5000; r++) {
+          const no = Number(str(cells[`${head.no}${r}`]));
+          if (no) bySection.set(no, str(cells[`${head.section}${r}`]));
+        }
+      }
+    } catch (_) { /* the headings only help the matching */ }
+    const out = [];
+    for (const it of merged.items || []) {
+      if (it.cost == null && it.service == null) continue;
+      if (/^computed|estimate|market|online|web|shop/i.test(it.source || '')) continue;
+      const sec = bySection.get(it.no) || '';
+      const d = String(it.description || '');
+      const description = sec && d.length < 45 && !d.toLowerCase().includes(sec.toLowerCase()) ? `${sec} - ${d}` : d;
+      out.push({ description, uom: it.uom, supply: it.cost, service: it.service, brand: it.brand, source: it.source });
+    }
+    return out;
+  }
+  async function startOwn(u8) {
+    const api = window.estimationBoqFiles;
+    if (!api || !api.mergedBoq || !api.agentFiles) return null;
+    let merged = null;
+    try { merged = await api.mergedBoq(u8); } catch (_) { merged = null; }
+    if (!merged || merged.mismatch || !merged.files.length) return null;
+    // Only client Excel BOQs; drawings, PDFs and tender documents keep the app's own workbook.
+    if (merged.files.some((f) => f.count > 0 && f.type !== 'XLSX')) return null;
+    try { for (const f of merged.files) if (await isSpec(f.name, chosen.get(f.name))) return null; } catch (_) { return null; }
+    const inputs = await api.agentFiles(u8);
+    if (!inputs || !inputs.length) return null;
+    const appRates = await appRatesOf(u8, merged);
+    const appFactors = merged.factors;
+    const all = ownJobs();
+    for (const f of inputs) {
+      ownState[f.name] = `${esc(f.name)}: sending to the AI pricing agent...`;
+      showOwn();
+      try {
+        const r = await callFn('agentStart', { fileName: f.name, data: toBase64(f.bytes), appRates, appFactors, margin: appFactors.supplyMargin });
+        delete ownState[f.name];
+        all[r.jobId] = { name: f.name, at: Date.now(), download: true };
+        ownState[r.jobId] = `${esc(f.name)}: reading every sheet...`;
+      } catch (e) {
+        ownState[f.name] = `${esc(f.name)}: not sent (${esc(e.message || e)})`;
+      }
+      showOwn();
+    }
+    setOwnJobs(all);
+    followOwn();
+    return 'sent to the AI pricing agent';
+  }
+  let ownTimer = null;
+  async function followOwn() {
+    if (ownTimer) clearTimeout(ownTimer);
+    ownTimer = null;
+    const all = ownJobs();
+    const ids = Object.keys(all);
+    if (!ids.length || !(window.firebase && window.firebase.auth().currentUser)) return;
+    let waiting = false;
+    for (const id of ids) {
+      const j = all[id];
+      if (Date.now() - (j.at || 0) > 3 * 86400000) { delete all[id]; continue; }
+      let v;
+      try { v = await callFn('agentStatus', { jobId: id }); } catch (_) { waiting = true; continue; }
+      if (v.status === 'failed' || v.status === 'cancelled') {
+        ownState[id] = `${esc(j.name)}: ${v.status === 'failed' ? `could not be priced (${esc(v.error || 'error')})` : 'cancelled'}`;
+        delete all[id];
+        continue;
+      }
+      if (v.status !== 'done') {
+        waiting = true;
+        if (j.download) ownState[id] = `${esc(j.name)}: ${v.total ? `${v.done} of ${v.total} lines priced` : esc((v.columns && v.columns.stage) || 'reading every sheet')}...`;
+        continue;
+      }
+      try {
+        const r = await callFn('agentResult', { jobId: id });
+        if (j.download && r.data) {
+          const bin = atob(r.data);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          await ownSave.call(est, r.fileName || `${j.name.replace(/\.xlsx$/i, '')} - priced.xlsx`, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        }
+        const src = r.priceSources || {};
+        const said = [src.database ? `${src.database} from your price database` : '', src.records ? `${src.records} from your past rates` : '', src.online ? `${src.online} online prices` : '', src.estimate ? `${src.estimate} AI estimates (marked to confirm)` : '', src.unpriced ? `${src.unpriced} still need a rate` : ''].filter(Boolean).join(', ');
+        let saved = '';
+        const rows = Array.isArray(r.dbAdd) ? r.dbAdd : [];
+        if (rows.length) {
+          try {
+            const a = JSON.parse(await rfq0.call(authApi, 'addPrices', JSON.stringify({ rows, mode: 'replace' })));
+            saved = `; ${(a.added || 0) + (a.replaced || 0)} online price${rows.length > 1 ? 's' : ''} saved in your price database`;
+          } catch (e) {
+            saved = `; the ${rows.length} online price${rows.length > 1 ? 's were' : ' was'} not saved in your price database (${esc(e.message || e)})`;
+          }
+        }
+        if (j.download) ownState[id] = `${esc(r.fileName || j.name)}: saved, ${(r.sheets || []).map((s) => `${esc(s.name)} ${s.priced}/${s.lines}`).join(', ')}${said ? ` (${said})` : ''}${saved}`;
+        else if (saved) ownState[id] = `${esc(j.name)}${saved}`;
+        delete all[id];
+      } catch (e) {
+        waiting = true; // tried again on the next round
+      }
+    }
+    setOwnJobs(all);
+    showOwn();
+    if (waiting || Object.keys(ownJobs()).length) ownTimer = setTimeout(followOwn, 10000);
+  }
+  // Jobs started on the agent page ("Compute with AI Agent") save their online prices too; the
+  // page downloads their workbooks itself.
+  window.addEventListener('message', (ev) => {
+    if (ev.origin !== location.origin || !frame || ev.source !== frame.contentWindow) return;
+    const m = ev.data;
+    if (!m || m.type !== 'estimation-agent-started' || typeof m.jobId !== 'string') return;
+    const all = ownJobs();
+    all[m.jobId] = { name: String(m.fileName || 'BOQ'), at: Date.now(), download: false };
+    setOwnJobs(all);
+    if (!ownTimer) ownTimer = setTimeout(followOwn, 20000);
+  });
+  let ownSave = null;
+  if (est) {
+    ownSave = est.saveFile;
+    est.saveFile = async function (name, bytes) {
+      if (/\.xlsx$/i.test(String(name)) && bytes && bytes.length < 40 * 1024 * 1024) {
+        let sent = null;
+        try { sent = await startOwn(new Uint8Array(bytes)); } catch (e) { console.warn('Client BOQ not sent to the agent:', e); sent = null; }
+        if (sent) return sent;
+      }
+      return ownSave.apply(est, arguments);
+    };
+  }
+
   // ---- Google Drive filing of AI Agent jobs (only while "Save project files to my Google
   // Drive" is on in Settings; the app's window.arzimateDrive does the saving) ----
   // The agent panel reports each job it starts; its BOQ is filed at once and the job is kept
@@ -819,5 +1026,6 @@
     btn.style.display = user ? 'flex' : 'none';
     if (!user) { panel.style.display = 'none'; if (timer) clearTimeout(timer); return; }
     check();
+    followOwn(); // client BOQs sent to the agent before a reload
   });
 })();
