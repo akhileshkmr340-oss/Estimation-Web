@@ -457,6 +457,229 @@
     };
   }
 
+  // ---- Every row priced in the app's own working (2026-11-25) ----
+  // The user: "still the BOQ Unit price were empty in manual working. it was filled in compute
+  // with AI. All the prices should be filled. Run all agents in background."
+  // The app prices from the Rate_Database and leaves the other rows to its "Search the web" step
+  // (Prices for rows not in your database), which runs only when the Sheet script has a Gemini
+  // key. Here that step is answered by the AI pricing agent (agentRates, the same pricing as a
+  // BOQ line: price book, the user's corrections, shops, AI): the Sheet's own web search still
+  // runs where it is set up, and every row it leaves gets the agent's supply and installation
+  // cost, marked "Estimate, confirm" with its basis on the Rates sheet. The step starts by itself
+  // once the rates are matched, and works in the background while the person carries on.
+  const authApi = window.estimationAuth;
+  const rfq0 = authApi.rfq;
+  let sheetSearch = false; // the Sheet script searches the web itself
+  const RATE_BATCH = 3; // rows per call, as a job's batches
+  const RATES_AT_ONCE = 4; // calls side by side
+  const rates = new Map(); // row id -> Promise of { supply, service, basis } or null
+  const rateQueue = [];
+  let ratesRunning = 0;
+  async function callRates(items) {
+    const current = window.firebase && window.firebase.auth().currentUser;
+    if (!current) throw new Error('Log in to price the rows.');
+    let res;
+    try {
+      res = await fetch(FUNCTIONS + 'agentRates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await current.getIdToken()) },
+        body: JSON.stringify({ data: { items } }),
+      });
+    } catch (_) {
+      throw new Error('The AI pricing agent did not answer. Check the internet and try again.');
+    }
+    let d = null;
+    try { d = await res.json(); } catch (_) { d = null; }
+    if (d && d.error) throw new Error(d.error.message || 'The AI pricing agent refused the request.');
+    if (!d || !d.result) throw new Error('The AI pricing agent gave an unexpected answer (' + res.status + ').');
+    return d.result;
+  }
+  function pumpRates() {
+    while (ratesRunning < RATES_AT_ONCE && rateQueue.length) {
+      const batch = rateQueue.splice(0, RATE_BATCH);
+      ratesRunning++;
+      callRates(batch.map((b) => b.item))
+        .then((r) => {
+          const by = new Map((r.estimates || []).map((e) => [String(e.id), e]));
+          for (const b of batch) b.resolve(by.get(b.item.id) || null);
+        }, (e) => { for (const b of batch) b.reject(e); })
+        .finally(() => { ratesRunning--; pumpRates(); });
+    }
+  }
+  function agentRate(item) {
+    const id = String((item && item.id) || '');
+    if (!id) return Promise.resolve(null);
+    let p = rates.get(id);
+    if (!p) {
+      const row = { id, description: item.description, rating: item.rating, uom: item.uom, context: item.context, brand: item.brand };
+      p = new Promise((resolve, reject) => rateQueue.push({ item: row, resolve, reject }));
+      rates.set(id, p);
+      p.then((v) => { if (!v) rates.delete(id); }, () => rates.delete(id)); // asked again next time
+      pumpRates();
+    }
+    return p;
+  }
+  if (authApi && typeof rfq0 === 'function') {
+    authApi.rfq = async function (action, json) {
+      if (action === 'priceSearchStatus') {
+        let st = {};
+        try { st = JSON.parse(await rfq0.call(authApi, action, json)) || {}; } catch (_) { st = {}; }
+        sheetSearch = st.allowed === true && (st.gemini === true || st.google === true || st.chatgpt === true);
+        // The step is on for every signed-in account: the agent prices, not the Sheet's keys.
+        return JSON.stringify(Object.assign({}, st, { allowed: true, gemini: true, agent: true }));
+      }
+      if (action !== 'searchPrices') return rfq0.call(authApi, action, json);
+      let q = {};
+      try { q = JSON.parse(json) || {}; } catch (_) { q = {}; }
+      const items = Array.isArray(q.items) ? q.items : [];
+      const checked = new Date().toISOString().slice(0, 10);
+      if (!q.estimate) {
+        // The web search: the Sheet's own where it has one; otherwise none, and the agent starts
+        // on these rows now, so their rates are ready when the app asks for them.
+        if (sheetSearch) {
+          try { return await rfq0.call(authApi, action, json); } catch (_) { /* the agent prices them */ }
+        }
+        for (const it of items) agentRate(it).catch(() => {});
+        return JSON.stringify({ checked, results: items.map((it) => ({ id: it.id, candidates: [] })), errors: [] });
+      }
+      const got = await Promise.allSettled(items.map(agentRate));
+      const estimates = [];
+      let error = null;
+      got.forEach((g, i) => {
+        if (g.status === 'fulfilled' && g.value && g.value.supply != null) estimates.push({ id: items[i].id, supply: g.value.supply, service: g.value.service, basis: g.value.basis });
+        else if (g.status === 'rejected') error = g.reason;
+      });
+      if (!estimates.length && error) throw error;
+      return JSON.stringify({ checked, estimates });
+    };
+  }
+
+  // The step starts by itself: its button ("Search the web for 12 rows") is pressed once for each
+  // project and count, through the app's accessibility tree (on for project pages, above).
+  const autoSearched = new Set();
+  function autoSearch() {
+    if (!onProject() || !user) return;
+    for (const n of document.querySelectorAll('flt-semantics[role="button"]')) {
+      const m = /^\s*Search the web for (\d+) rows?\b/.exec(n.textContent || '');
+      if (!m || n.getAttribute('aria-disabled') === 'true') continue;
+      const key = location.hash.split('?')[0] + '|' + m[1];
+      if (autoSearched.has(key)) continue;
+      autoSearched.add(key);
+      n.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    }
+  }
+  setInterval(autoSearch, 2500);
+
+  // The app labels these rates "Estimate by Gemini with Google Search: ..." in the workbooks it
+  // saves; they are the agent's, so the label says so.
+  const AGENT_LABEL = /Estimate by Gemini with Google Search: (AI pricing agent)/g;
+  let crcTable = null;
+  function crc32(u8) {
+    if (!crcTable) {
+      crcTable = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crcTable[n] = c >>> 0; }
+    }
+    let c = 0xffffffff;
+    for (let i = 0; i < u8.length; i++) c = crcTable[(c ^ u8[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  async function deflate(u8) {
+    const stream = new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  // The same zip with some files' contents replaced ({ name: Uint8Array }); the others are
+  // copied byte for byte.
+  async function rezip(u8, changed) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    let end = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { end = i; break; }
+    if (end < 0) return null;
+    const cdStart = dv.getUint32(end + 16, true);
+    const entries = [];
+    let p = cdStart;
+    for (let n = dv.getUint16(end + 10, true); n > 0 && dv.getUint32(p, true) === 0x02014b50; n--) {
+      const nameLen = dv.getUint16(p + 28, true);
+      const len = 46 + nameLen + dv.getUint16(p + 30, true) + dv.getUint16(p + 32, true);
+      entries.push({ cd: p, cdLen: len, nameLen, local: dv.getUint32(p + 42, true), name: new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nameLen)) });
+      p += len;
+    }
+    const byOffset = entries.slice().sort((a, b) => a.local - b.local);
+    byOffset.forEach((e, i) => { e.end = i + 1 < byOffset.length ? byOffset[i + 1].local : cdStart; });
+    const parts = [];
+    const central = [];
+    let at = 0;
+    for (const e of byOffset) {
+      const offset = at;
+      const nameBytes = u8.subarray(e.cd + 46, e.cd + 46 + e.nameLen);
+      let cdRec;
+      if (changed[e.name]) {
+        const data = changed[e.name];
+        const comp = await deflate(data);
+        const crc = crc32(data);
+        const flags = dv.getUint16(e.cd + 8, true) & 0x0800; // keep only the UTF-8 name flag
+        const head = new Uint8Array(30 + e.nameLen);
+        const h = new DataView(head.buffer);
+        h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, flags, true); h.setUint16(8, 8, true);
+        h.setUint16(10, dv.getUint16(e.cd + 12, true), true); h.setUint16(12, dv.getUint16(e.cd + 14, true), true);
+        h.setUint32(14, crc, true); h.setUint32(18, comp.length, true); h.setUint32(22, data.length, true);
+        h.setUint16(26, e.nameLen, true); h.setUint16(28, 0, true);
+        head.set(nameBytes, 30);
+        parts.push(head, comp);
+        at += head.length + comp.length;
+        cdRec = new Uint8Array(46 + e.nameLen);
+        cdRec.set(u8.subarray(e.cd, e.cd + 46), 0);
+        const c = new DataView(cdRec.buffer);
+        c.setUint16(8, flags, true); c.setUint16(10, 8, true); c.setUint32(16, crc, true);
+        c.setUint32(20, comp.length, true); c.setUint32(24, data.length, true);
+        c.setUint16(30, 0, true); c.setUint16(32, 0, true);
+        cdRec.set(nameBytes, 46);
+      } else {
+        const chunk = u8.subarray(e.local, e.end);
+        parts.push(chunk);
+        at += chunk.length;
+        cdRec = u8.slice(e.cd, e.cd + e.cdLen);
+      }
+      new DataView(cdRec.buffer).setUint32(42, offset, true);
+      central.push({ i: entries.indexOf(e), rec: cdRec });
+    }
+    central.sort((a, b) => a.i - b.i);
+    const cdAt = at;
+    let cdSize = 0;
+    for (const c of central) { parts.push(c.rec); cdSize += c.rec.length; }
+    const eocd = u8.slice(end, u8.length);
+    const ev = new DataView(eocd.buffer);
+    ev.setUint32(12, cdSize, true);
+    ev.setUint32(16, cdAt, true);
+    parts.push(eocd);
+    return new Uint8Array(await new Blob(parts).arrayBuffer());
+  }
+  async function relabel(u8) {
+    const zip = zipEntries(u8);
+    const changed = {};
+    for (const name of Object.keys(zip)) {
+      if (!/^xl\/(worksheets\/[^/]+|sharedStrings)\.xml$/.test(name)) continue;
+      const xml = new TextDecoder().decode(await zip[name]());
+      if (!AGENT_LABEL.test(xml)) continue;
+      AGENT_LABEL.lastIndex = 0;
+      changed[name] = new TextEncoder().encode(xml.replace(AGENT_LABEL, 'Estimate by the $1'));
+    }
+    AGENT_LABEL.lastIndex = 0;
+    return Object.keys(changed).length ? rezip(u8, changed) : null;
+  }
+  if (est) {
+    const saveFile = est.saveFile;
+    est.saveFile = async function (name, bytes) {
+      const args = Array.prototype.slice.call(arguments);
+      if (/\.xlsx$/i.test(String(name)) && bytes && bytes.length < 60 * 1024 * 1024) {
+        try {
+          const b = await relabel(new Uint8Array(bytes));
+          if (b) args[1] = b;
+        } catch (e) { console.warn('Rate labels not changed:', e); }
+      }
+      return saveFile.apply(est, args);
+    };
+  }
+
   // ---- Google Drive filing of AI Agent jobs (only while "Save project files to my Google
   // Drive" is on in Settings; the app's window.arzimateDrive does the saving) ----
   // The agent panel reports each job it starts; its BOQ is filed at once and the job is kept
