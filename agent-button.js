@@ -150,7 +150,8 @@
     const specs = [];
     try { for (const n of names) if (await isSpec(n, chosen.get(n))) specs.push(n); } catch (_) { return list; }
     const key = specs.slice().sort().join('|');
-    if (!specs.length || decided.has(key)) return list;
+    if (!specs.length) return sldOffer(list, names);
+    if (decided.has(key)) return list;
     const go = await ask(`<b>These are tender documents</b><br>${specs.length > 1 ? 'These specifications go' : 'This specification goes'} through your 7 steps in the AI agent:` +
       `<ul>${specs.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` +
       'tender details, BOQ made and checked, supplier enquiry drafts, technical documents, costing with its check, and separate technical and commercial offers. The app itself would read them as BOQ lines and price them only from your rate list.',
@@ -162,6 +163,51 @@
       return [];
     }
     return list;
+  }
+
+  // SLD drawings chosen without a specification: the app's own reading gives a quantity
+  // take-off, not an offer (the user, 2026-11-27: "arzimate is unable to read and prepare the
+  // offer for attached SLD"). The AI agent reads every board and feeder and prices the offer.
+  async function sldOffer(list, names) {
+    const slds = [];
+    try { for (const n of names) if (await isSld(n, chosen.get(n))) slds.push(n); } catch (_) { return list; }
+    const key = `sld:${slds.slice().sort().join('|')}`;
+    if (!slds.length || decided.has(key)) return list;
+    const go = await ask(`<b>${slds.length > 1 ? 'These are SLD drawings' : 'This is an SLD drawing'}</b><br>The AI agent reads every board and its feeders from ${slds.length > 1 ? 'them' : 'it'}:` +
+      `<ul>${slds.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` +
+      'you check the boards it found, then it prices each board and writes the offer with the BOQ, costing and technical and commercial offers. The app itself only reads the drawings into BOQ lines.',
+      [{ label: 'Prepare the offer in the AI agent', value: 'tender', main: true }, { label: 'Read them in the app', value: 'app' }]);
+    if (!go) return list;
+    decided.add(key);
+    if (go === 'tender') {
+      toTender({ names, specs: slds }, project);
+      return [];
+    }
+    return list;
+  }
+  // An SLD: named so, or a drawing sheet (A3 or larger, a few pages) whose text names switchgear.
+  const SLD_FILE = /(^|[^a-z])sld(?![a-z])|single[\s_-]*line/i;
+  const GEAR = /\b(ACB|MCCB|MCB|VCB|RMU|SFU|busbar|bus\s*bar|bus\s*duct|incomer|outgoing|feeder)\b/gi;
+  async function isSld(name, bytes) {
+    if (!/\.pdf$/i.test(name)) return false;
+    if (SLD_FILE.test(name)) return true;
+    if (!bytes) return false;
+    let sld = false;
+    try {
+      const lib = await loadPdf();
+      const doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+      if (doc.numPages <= 10) {
+        for (let p = 1; p <= doc.numPages && !sld; p++) {
+          const page = await doc.getPage(p);
+          const v = page.getViewport({ scale: 1 });
+          if (Math.max(v.width, v.height) <= 1150) continue;
+          const text = (await page.getTextContent()).items.map((it) => it.str || '').join(' ');
+          sld = (text.match(GEAR) || []).length >= 8;
+        }
+      }
+      await doc.destroy();
+    } catch (_) { /* unreadable here: not offered */ }
+    return sld;
   }
 
   let pdfjs = null;
@@ -661,17 +707,85 @@
     parts.push(eocd);
     return new Uint8Array(await new Blob(parts).arrayBuffer());
   }
+  // The app's own workbook: on its Rates sheet a priced row's Discount % is written as a plain 0,
+  // so the "Discount % on list prices" cell at the top of the BOQ sheet changed nothing (the user,
+  // 2026-11-27: "discounted % is not calculating in sheet"). Every Discount % cell that holds the
+  // same value as that top cell becomes a link to it; a discount typed for one item stays.
+  const xmlText = (cell) => {
+    const t = /<t[^>]*>([\s\S]*?)<\/t>/.exec(cell);
+    return t ? t[1] : '';
+  };
+  const cellsOf = (xml) => [...xml.matchAll(/<c r="([A-Z]+)(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)].map((m) => ({ all: m[0], col: m[1], row: Number(m[2]), attrs: m[3], body: m[4] || '' }));
+  async function sheetPaths(zip) {
+    if (!zip['xl/workbook.xml'] || !zip['xl/_rels/workbook.xml.rels']) return {};
+    const wb = new TextDecoder().decode(await zip['xl/workbook.xml']());
+    const rels = new TextDecoder().decode(await zip['xl/_rels/workbook.xml.rels']());
+    const target = {};
+    for (const m of rels.matchAll(/<Relationship\b[^>]*>/g)) {
+      const id = /Id="([^"]+)"/.exec(m[0]);
+      const t = /Target="([^"]+)"/.exec(m[0]);
+      if (id && t) target[id[1]] = t[1].startsWith('/') ? t[1].slice(1) : `xl/${t[1].replace(/^\.?\//, '')}`;
+    }
+    const out = {};
+    for (const m of wb.matchAll(/<sheet\b[^>]*>/g)) {
+      const name = /name="([^"]*)"/.exec(m[0]);
+      const rid = /r:id="([^"]+)"/.exec(m[0]);
+      if (name && rid && target[rid[1]]) out[name[1]] = target[rid[1]];
+    }
+    return out;
+  }
+  async function linkDiscounts(zip, texts) {
+    const paths = await sheetPaths(zip);
+    if (!paths.BOQ || !paths.Rates || !zip[paths.BOQ] || !zip[paths.Rates]) return null;
+    const boq = texts[paths.BOQ] || new TextDecoder().decode(await zip[paths.BOQ]());
+    const head = cellsOf(boq).find((c) => /^Discount % on list prices/.test(xmlText(c.body)));
+    if (!head) return null;
+    const top = cellsOf(boq).find((c) => c.col === head.col && c.row === head.row + 1);
+    const topValue = top ? Number((/<v>([^<]*)<\/v>/.exec(top.body) || [])[1] || 0) : 0;
+    const ref = `'BOQ'!$${head.col}$${head.row + 1}`;
+    let rates = texts[paths.Rates] || new TextDecoder().decode(await zip[paths.Rates]());
+    const cells = cellsOf(rates);
+    const dh = cells.find((c) => xmlText(c.body).trim() === 'Discount %');
+    if (!dh) return null;
+    let n = 0;
+    for (const c of cells) {
+      if (c.col !== dh.col || c.row <= dh.row || /<f>/.test(c.body) || /t="(s|inlineStr|str)"/.test(c.attrs)) continue;
+      const v = /<v>([^<]*)<\/v>/.exec(c.body);
+      if (!v || Number(v[1]) !== topValue) continue;
+      rates = rates.replace(c.all, `<c r="${c.col}${c.row}"${c.attrs}><f>${ref.replace(/'/g, '&apos;')}</f><v>${v[1]}</v></c>`);
+      n++;
+    }
+    if (!n) return null;
+    // Excel works the linked cells out again when the file opens.
+    let wbXml = new TextDecoder().decode(await zip['xl/workbook.xml']());
+    wbXml = /<calcPr\b/.test(wbXml)
+      ? wbXml.replace(/<calcPr\b([^>]*?)\/?>/, (m, a) => `<calcPr${a.replace(/\s*fullCalcOnLoad="[^"]*"/, '')} fullCalcOnLoad="1"/>`)
+      : wbXml.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
+    return { rates: [paths.Rates, rates], workbook: wbXml };
+  }
   async function relabel(u8) {
     const zip = zipEntries(u8);
     const changed = {};
+    const texts = {};
     for (const name of Object.keys(zip)) {
       if (!/^xl\/(worksheets\/[^/]+|sharedStrings)\.xml$/.test(name)) continue;
       const xml = new TextDecoder().decode(await zip[name]());
+      texts[name] = xml;
       if (!AGENT_LABEL.test(xml)) continue;
       AGENT_LABEL.lastIndex = 0;
-      changed[name] = new TextEncoder().encode(xml.replace(AGENT_LABEL, 'Estimate by the $1'));
+      texts[name] = xml.replace(AGENT_LABEL, 'Estimate by the $1');
+      changed[name] = new TextEncoder().encode(texts[name]);
     }
     AGENT_LABEL.lastIndex = 0;
+    try {
+      const linked = await linkDiscounts(zip, texts);
+      if (linked) {
+        changed[linked.rates[0]] = new TextEncoder().encode(linked.rates[1]);
+        changed['xl/workbook.xml'] = new TextEncoder().encode(linked.workbook);
+      }
+    } catch (e) {
+      console.warn('Discount links not added:', e);
+    }
     return Object.keys(changed).length ? rezip(u8, changed) : null;
   }
   if (est) {

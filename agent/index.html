@@ -105,7 +105,7 @@
         <input id="tenderTitle" type="text" maxlength="120" placeholder="e.g. BIAL tunnel electrical">
         <label for="tenderCompany">Your company name, for the enquiries and offers (optional)</label>
         <input id="tenderCompany" type="text" maxlength="60" autocomplete="organization">
-        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back. You can also paste the specification below (no word limit). SLD drawings (PDFs with "SLD" or "single line" in the file name, such as "SLD2.pdf") are read for their boards and feeders: you check the boards here before the costing goes on.</div>
+        <div class="hint">Add every file of the tender: PDF, Excel (.xlsx, .xls) or Word (.docx), up to 60 files. Supplier enquiries come back as drafts: nothing is sent until you send it. A large tender takes 30 to 60 minutes; you can close this panel and come back. You can also paste the specification below (no word limit). SLD drawings (found by their file name, such as "SLD2.pdf", or by the switchgear drawn on them; scanned sheets are read as pictures) are read for their boards and feeders, and a tender of SLDs only is priced board by board: you check the boards here before the costing goes on.</div>
       </div>
       <div id="boqOnly">
         <label for="drawings">SLD drawings (optional: PDF, PNG or JPG)</label>
@@ -544,9 +544,275 @@
     return pages;
   }
 
+  // An SLD page with (almost) no text layer: a scan, or AutoCAD's SHX text drawn as lines (the
+  // GIDC Vapi "25 SLD2.pdf" had 44 words, all in its title block, so no board was read). Its words
+  // are read here with the site's OCR (Tesseract, as the main app's scanned PDFs) and sent like a
+  // vector SLD's text. Measured on that sheet (2026-11-28): at 14 px a mm, read the right way up,
+  // a 100 x 100 mm part gave 82 good words in 10 s; read the wrong way round it gave noise and took
+  // much longer. So a small part of the middle is read first in each direction (0, 90 and 270
+  // degrees), and the whole sheet only in the directions that gave words, with several readers at
+  // once. Words are joined into phrases ("415V,3200A, TPN, SANDWICH BUS DUCT") in the tile they
+  // were read in, then placed on the page in mm, as pdfLayout gives a vector SLD's text.
+  const OCR_MIN_WORDS = 120; // a page with fewer text runs than this is read with OCR
+  const OCR_TILE = 2400;
+  const OCR_OVERLAP = 160;
+  let ocrPromise = null;
+  // A small pool of OCR readers (Tesseract workers), at most 4.
+  function ocrWorkers() {
+    if (!ocrPromise) {
+      ocrPromise = (async () => {
+        if (!window.Tesseract) {
+          await new Promise((resolve, reject) => {
+            const el = document.createElement('script');
+            el.src = new URL('../ocr/tesseract.min.js', location.href).href;
+            el.onload = resolve;
+            el.onerror = () => reject(new Error('Could not load the text reader (OCR). Check the internet and try again.'));
+            document.head.appendChild(el);
+          });
+        }
+        const base = new URL('../ocr/', location.href).href;
+        const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
+        const workers = [];
+        for (let i = 0; i < n; i++) {
+          const w = await window.Tesseract.createWorker('eng', 1, { workerPath: base + 'ocr-worker.js', corePath: base, langPath: base + 'lang', cacheMethod: 'none', workerBlobURL: false });
+          // Sparse text: a drawing's labels are scattered, not paragraphs.
+          await w.setParameters({ tessedit_pageseg_mode: '11' });
+          workers.push(w);
+        }
+        return workers;
+      })();
+      ocrPromise.catch(() => { ocrPromise = null; });
+    }
+    return ocrPromise;
+  }
+  // Words of one tile: [{ l, r, y, h, t, conf }] in tile pixels (y the bottom of the word).
+  function ocrWords(data) {
+    const words = [];
+    for (const block of data.blocks || []) for (const para of block.paragraphs || []) for (const line of para.lines || []) {
+      for (const w of line.words || []) {
+        const t = (w.text || '').trim();
+        // Drawing lines read as letters ("|", "--") and unsure words are left out.
+        if (!t || w.confidence < 55 || !/[A-Za-z0-9]/.test(t)) continue;
+        const b = w.bbox;
+        words.push({ l: b.x0, r: b.x1, y: b.y1, h: b.y1 - b.y0, t, conf: w.confidence });
+      }
+    }
+    return words;
+  }
+  // Words joined into phrases along their line: [{ l, y, t }] (the left end on the bottom line).
+  function ocrPhrases(words) {
+    const sorted = [...words].sort((a, b) => a.y - b.y || a.l - b.l);
+    const phrases = [];
+    for (const w of sorted) {
+      const p = phrases.find((q) => Math.abs(q.y - w.y) < 0.6 * Math.max(q.h, w.h) && w.l >= q.r - 2 && w.l - q.r < 1.6 * Math.max(q.h, w.h));
+      if (p) { p.t += ' ' + w.t; p.r = w.r; p.h = Math.max(p.h, w.h); } else phrases.push({ ...w });
+    }
+    // A label of several lines ("415V,3200A, 50Hz," over "TP ALUM. BUS BAR,") is one block: lines
+    // that start at the same place, one under the other. The server finds a board by a busbar
+    // label with its amps, so they must be one text.
+    const blocks = [];
+    for (const p of phrases) {
+      const b = blocks.find((q) => Math.abs(q.l - p.l) < 1.5 * Math.max(q.h, p.h) && p.y - q.last > 0 && p.y - q.last < 2.2 * Math.max(q.h, p.h));
+      if (b) { b.t += ' ' + p.t; b.last = p.y; b.h = Math.max(b.h, p.h); } else blocks.push({ ...p, last: p.y });
+    }
+    return blocks;
+  }
+  // A part of the page drawn on a canvas: the viewport (turned `turn` degrees, at `scale`) moved
+  // so that its pixel (x0, y0) is the canvas corner.
+  async function ocrTile(page, scale, turn, x0, y0, w, h) {
+    const vp = page.getViewport({ scale, rotation: (page.rotate + turn) % 360, offsetX: -x0, offsetY: -y0 });
+    const canvas = canvasOf(w, h);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp, intent: 'print' }).promise;
+    return { vp, canvas };
+  }
+  // One page's text by OCR: { frame, items: [[x_mm, y_mm, text], ...] } with the positions in
+  // `frame`, the page turned the way most of its text reads; null when no text was found.
+  async function ocrLayout(page, progress) {
+    const workers = await ocrWorkers();
+    const mm = 25.4 / 72;
+    const upright = page.getViewport({ scale: 1 }); // 1 px = 1 pt
+    const wMm = upright.width * mm;
+    const hMm = upright.height * mm;
+    // 18 px a mm (2 mm drawing text 36 px high: at 14 the Vapi PMCC's feeder strip gave 63 words,
+    // at 20 it gave 121), less on big sheets: at most 30 tiles a direction.
+    const tiles = (ppm) => Math.ceil((wMm * ppm) / (OCR_TILE - OCR_OVERLAP)) * Math.ceil((hMm * ppm) / (OCR_TILE - OCR_OVERLAP));
+    let ppm = 18;
+    while (ppm > 8 && tiles(ppm) > 30) ppm -= 0.5;
+    const scale = ppm / (72 / 25.4);
+    // Which way the text runs: a 100 x 100 mm part of the middle read in each direction.
+    progress('finding which way its text runs');
+    const probe = Math.round(Math.min(100, wMm, hMm) * ppm);
+    const tries = await Promise.all([0, 90, 270].map(async (turn, i) => {
+      const full = page.getViewport({ scale, rotation: (page.rotate + turn) % 360 });
+      const { canvas } = await ocrTile(page, scale, turn, Math.max(0, (full.width - probe) / 2), Math.max(0, (full.height - probe) / 2), probe, probe);
+      const { data } = await workers[i % workers.length].recognize(canvas, {}, { blocks: true });
+      return { turn, score: ocrWords(data).filter((w) => w.conf >= 75 && w.t.length >= 3).length };
+    }));
+    const best = Math.max(...tries.map((t) => t.score));
+    if (best < 3) return null;
+    const turns = tries.filter((t) => t.score >= Math.max(3, best * 0.4)).map((t) => t.turn);
+    // Positions are given on the sheet turned the way most of its text reads (a drawing set
+    // sideways on its sheet, as the Vapi SLD2), so the server reads its rows as drawn.
+    const frame = page.getViewport({ scale: 1, rotation: (page.rotate + tries.find((t) => t.score === best).turn) % 360 });
+    // Every tile of the chosen directions, read by the pool.
+    const jobs = [];
+    for (const turn of turns) {
+      const full = page.getViewport({ scale, rotation: (page.rotate + turn) % 360 });
+      const cols = Math.max(1, Math.ceil((full.width - OCR_OVERLAP) / (OCR_TILE - OCR_OVERLAP)));
+      const rows = Math.max(1, Math.ceil((full.height - OCR_OVERLAP) / (OCR_TILE - OCR_OVERLAP)));
+      const tw = Math.min(OCR_TILE, Math.ceil(full.width));
+      const th = Math.min(OCR_TILE, Math.ceil(full.height));
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          jobs.push({
+            turn, c, r, cols, rows, tw, th,
+            x0: Math.min(c * (OCR_TILE - OCR_OVERLAP), Math.max(0, full.width - OCR_TILE)),
+            y0: Math.min(r * (OCR_TILE - OCR_OVERLAP), Math.max(0, full.height - OCR_TILE)),
+          });
+        }
+      }
+    }
+    const out = [];
+    let done = 0;
+    let next = 0;
+    await Promise.all(workers.map(async (worker) => {
+      while (next < jobs.length) {
+        const j = jobs[next++];
+        const { vp, canvas } = await ocrTile(page, scale, j.turn, j.x0, j.y0, j.tw, j.th);
+        const { data } = await worker.recognize(canvas, {}, { blocks: true });
+        for (const p of ocrPhrases(ocrWords(data))) {
+          // A phrase belongs to the tile whose middle part holds its start (no doubles).
+          const keepX = (j.c === 0 || p.l >= OCR_OVERLAP / 2) && (j.c === j.cols - 1 || p.l < j.tw - OCR_OVERLAP / 2);
+          const keepY = (j.r === 0 || p.y >= OCR_OVERLAP / 2) && (j.r === j.rows - 1 || p.y < j.th - OCR_OVERLAP / 2);
+          if (!keepX || !keepY) continue;
+          const [px, py] = vp.convertToPdfPoint(p.l, p.y);
+          const [ux, uy] = frame.convertToViewportPoint(px, py);
+          out.push([Math.round(ux * mm * 10) / 10, Math.round(uy * mm * 10) / 10, p.t.slice(0, 200)]);
+        }
+        progress(`reading the drawing with OCR, part ${++done} of ${jobs.length}`);
+      }
+    }));
+    return { frame, items: ocrTidy(out) };
+  }
+  // The OCR's items made ready for the server: the same text read twice (two directions, two
+  // tiles) kept once; lone letters left out; and a busbar label joined to its rating read just
+  // before it on the same line ("11KV,630A,50Hz, 26.3KA/1SEC" + "TP ALUM. BUS BAR"), because the
+  // server finds each board by a busbar label that carries its amps.
+  function ocrTidy(items) {
+    const key = (t) => t.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const out = [];
+    for (const it of items) {
+      const k = key(it[2]);
+      if (k.length < 2) continue;
+      if (out.some((o) => key(o[2]) === k && Math.abs(o[0] - it[0]) < 3 && Math.abs(o[1] - it[1]) < 3)) continue;
+      out.push(it);
+    }
+    const BUS = /\bbus ?bars?\b/i;
+    const AMPS = /\d{2,5}\s*A\b/i;
+    for (const it of out) {
+      if (!BUS.test(it[2]) || AMPS.test(it[2])) continue;
+      const left = out
+        .filter((o) => o !== it && AMPS.test(o[2]) && Math.abs(o[1] - it[1]) < 3 && o[0] < it[0] && it[0] - o[0] < 60)
+        .sort((a, b) => b[0] - a[0])[0];
+      // or on the line just above it ("415V,3200A, 50Hz," over "TP ALUM. BUS BAR").
+      const above = left || out
+        .filter((o) => o !== it && AMPS.test(o[2]) && o[1] < it[1] && it[1] - o[1] < 8 && Math.abs(o[0] - it[0]) < 15)
+        .sort((a, b) => b[1] - a[1])[0];
+      if (above) it[2] = `${above[2]} ${it[2]}`.slice(0, 200);
+    }
+    return out;
+  }
+
+  // Positions of a page's own text runs on the page drawn with viewport `vp`, in mm.
+  function placeRuns(content, vp) {
+    const mm = 25.4 / 72;
+    return content.items.filter((it) => (it.str || '').trim()).map((it) => {
+      const [x, y] = vp.convertToViewportPoint(it.transform[4], it.transform[5]);
+      return [Math.round(x * mm * 10) / 10, Math.round(y * mm * 10) / 10, it.str.trim()];
+    });
+  }
+  // True for a drawing whose text is not text: a scanned image, or thousands of drawn lines (AutoCAD
+  // SHX text) with almost no text runs. A cover or notes page has real text and few lines.
+  async function drawnWithoutText(lib, page) {
+    const ops = await page.getOperatorList();
+    const fn = ops.fnArray;
+    if (fn.includes(lib.OPS.paintImageXObject) || fn.includes(lib.OPS.paintInlineImageXObject)) return true;
+    let paths = 0;
+    for (const f of fn) if (f === lib.OPS.constructPath) paths++;
+    return paths > 2000;
+  }
+
   // A tender: every file goes to the agent (PDFs as their pages' text, read here), then one job
   // runs the user's 7 steps on them in the background.
   const SLD_NAME = /(^|[^a-z])sld(?![a-z])|single[\s_-]*line/i;
+  // A drawing sheet (A3 or larger) of a few pages whose text names switchgear is an SLD whatever
+  // its file name ("457100590-MMD-00-XX-G-EE-0001_C02_D2.pdf", 2026-11-27).
+  const GEAR = /\b(ACB|MCCB|MCB|VCB|RMU|SFU|busbar|bus\s*bar|bus\s*duct|incomer|outgoing|feeder)\b/gi;
+  // A page of an SLD with almost no text (a scan, or text drawn as lines) is sent as a picture
+  // for the vision model.
+  const PICTURE_BELOW = 15;
+  // One reading of a tender PDF: its text page by page, and for an SLD also its text with
+  // positions and the pages to send as pictures.
+  async function tenderPdf(file, progress = () => {}) {
+    const lib = await loadPdfjs();
+    const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = [];
+    const layout = [];
+    let sheet = false;
+    for (let p = 1; p <= Math.min(doc.numPages, 2000); p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      const text = content.items.map((it) => (it.str || '') + (it.hasEOL ? '\n' : '')).join('');
+      pages.push(text);
+      if (p <= 40) {
+        const viewport = page.getViewport({ scale: 1 });
+        const mm = 25.4 / 72;
+        layout.push(content.items.filter((it) => (it.str || '').trim()).map((it) => {
+          const [x, y] = viewport.convertToViewportPoint(it.transform[4], it.transform[5]);
+          return [Math.round(x * mm * 10) / 10, Math.round(y * mm * 10) / 10, it.str.trim()];
+        }));
+        if (Math.max(viewport.width, viewport.height) > 1150 && (text.match(GEAR) || []).length >= 8) sheet = true;
+      }
+    }
+    const sld = SLD_NAME.test(file.name) || (doc.numPages <= 10 && sheet);
+    // An SLD sheet drawn without text (a scan, or AutoCAD's SHX text as lines) is read with OCR
+    // here and sent as text, which the server reads far better than a picture (2026-11-28: the
+    // Vapi "25 SLD2.pdf" gave 3 boards this way, none as before). At most 6 sheets a file; a
+    // sheet the OCR cannot read still goes as a picture.
+    if (sld) {
+      let read = 0;
+      for (let i = 0; i < layout.length && read < 6; i++) {
+        if (layout[i].length >= OCR_MIN_WORDS) continue;
+        const page = await doc.getPage(i + 1);
+        try {
+          if (!(await drawnWithoutText(lib, page))) continue;
+          read++;
+          const ocr = await ocrLayout(page, (t) => progress(`${file.name} page ${i + 1}: ${t}`));
+          if (ocr && ocr.items.length >= 30) layout[i] = [...placeRuns(await page.getTextContent(), ocr.frame), ...ocr.items];
+        } catch (e) {
+          console.warn('SLD OCR failed:', e);
+        }
+      }
+    }
+    const pictures = sld ? layout.map((items, i) => (items.length < PICTURE_BELOW ? i + 1 : 0)).filter(Boolean) : [];
+    return { doc, pages, layout: sld ? layout : null, pictures };
+  }
+  // Draws pages of a PDF already open and sends them as tiles (agentDrawing); returns the count.
+  async function sendPictures(doc, name, list, batch, from, progress) {
+    let n = 0;
+    for (const p of list) {
+      if (from + n >= MAX_PAGES) break;
+      progress(`Sending drawing ${name} page ${p} as a picture...`);
+      const page = await doc.getPage(p);
+      const v1 = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: fitScale(v1.width, v1.height, 2.1) });
+      const canvas = canvasOf(viewport.width, viewport.height);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport, intent: 'print' }).promise;
+      await call('agentDrawing', { batch, where: `${name} page ${p}`, page: from + n, tiles: await tilesOf(canvas) });
+      n++;
+    }
+    return n;
+  }
   async function startTender(files, opts = {}) {
     $('startError').textContent = '';
     const bad = files.map((f) => !/\.(pdf|xlsx|xls|docx)$/i.test(f.name)
@@ -559,20 +825,25 @@
     const batch = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => ids[b % ids.length]).join('');
     const label = $('startBtn').textContent;
     $('startBtn').disabled = true;
+    // SLD pages without text go as pictures, in a batch of their own.
+    const pictureBatch = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => ids[b % ids.length]).join('');
+    let pictures = 0;
     try {
       for (const [n, f] of files.entries()) {
         $('startBtn').textContent = `Sending file ${n + 1} of ${files.length}...`;
         if (f.pages) await call('agentTenderFile', { batch, n, name: f.name, pages: f.pages }); // pasted text
         else if (/\.pdf$/i.test(f.name)) {
-          await call('agentTenderFile', { batch, n, name: f.name, pages: await pdfPages(f) });
+          const read = await tenderPdf(f, (t) => { $('startBtn').textContent = `File ${n + 1} of ${files.length}, ${t}...`; });
+          await call('agentTenderFile', { batch, n, name: f.name, pages: read.pages });
           // An SLD drawing also sends its text with positions, for its boards' feeders.
-          if (SLD_NAME.test(f.name)) await call('agentTenderFile', { batch, n, name: f.name, layout: await pdfLayout(f) });
+          if (read.layout && read.layout.some((p) => p.length >= PICTURE_BELOW)) await call('agentTenderFile', { batch, n, name: f.name, layout: read.layout });
+          if (read.pictures.length) pictures += await sendPictures(read.doc, f.name, read.pictures, pictureBatch, pictures, (t) => { $('startBtn').textContent = t; });
         } else await call('agentTenderFile', { batch, n, name: f.name, data: toBase64(await f.arrayBuffer()) });
       }
       const company = opts.company !== undefined ? opts.company : $('tenderCompany').value.trim();
       try { localStorage.setItem('agentCompany', company); } catch (_) {}
       const title = opts.title !== undefined ? opts.title : $('tenderTitle').value.trim();
-      const { jobId } = await call('agentTenderStart', { batch, title: title || files[0].name.replace(/\.[a-z]+$/i, ''), margin, company });
+      const { jobId } = await call('agentTenderStart', { batch, title: title || files[0].name.replace(/\.[a-z]+$/i, ''), margin, company, ...(pictures ? { drawings: pictureBatch } : {}) });
       watch(jobId);
       loadHistory(false);
       return true;
